@@ -1,0 +1,18 @@
+# Java build output
+*.class
+*.jar
+/build/
+/out/
+
+# Generated local output
+/output/
+
+# Visual Studio / .NET
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# Editor backups
+*~

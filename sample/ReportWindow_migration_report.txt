@@ -1,0 +1,74 @@
+VB6 -> VB.NET WinForms 座標変換レポート
+入力: ReportWindowCoorsDummy.frm
+フォーム: ReportWindow
+DPI: 96.0 (1px = 15.0 Twips)
+フォームを含む定義数: 111
+SSTab非表示座標補正数: 34
+タブ割り当て推定数: 10
+警告数: 47
+
+移行範囲: フォーム配置、標準コントロール、Frame親子構造、SSTab->TabControl、基本的な属性とフォント。
+制限: VB6実行コード・イベント・コントロール配列イベント・COMオブジェクトの動作は自動変換しません。
+制限: .frx は添付されていないため Picture/TabPicture/ItemData/ImageList画像を復元しません。
+制限: 元フォーム内の ScaleMode はTwips（標準）を前提としています。
+制限: SSTabのY座標はTabHeightを引き、負の小さい値は0に丸めます。手動で見た目を確認してください。
+制限: Form.AutoScaleMode=NoneのためDPI倍率・フォント環境で見た目がずれることがあります。
+注意: VB.NETの.Windows.Forms.Formの自動生成レイアウトとしてVisual Studioで開けますが、未サポート要素は警告を確認してください。
+
+=== 警告 ===
+WARN: SysInfo1 (SysInfoLib.SysInfo) はWinForms相当コントロールがなく省略しました
+WARN: CalenderButton(7) はVB6のコントロール配列です。WinFormsでは CalenderButton_7 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: CalenderButton(6) はVB6のコントロール配列です。WinFormsでは CalenderButton_6 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: ReportOutputButton(2) はVB6のコントロール配列です。WinFormsでは ReportOutputButton_2 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: Label21(3) はVB6のコントロール配列です。WinFormsでは Label21_3 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: Label22(2) はVB6のコントロール配列です。WinFormsでは Label22_2 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: ReportOutputButton(1) はVB6のコントロール配列です。WinFormsでは ReportOutputButton_1 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: CalenderButton(5) はVB6のコントロール配列です。WinFormsでは CalenderButton_5 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: CalenderButton(4) はVB6のコントロール配列です。WinFormsでは CalenderButton_4 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: Label22(0) はVB6のコントロール配列です。WinFormsでは Label22_0 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: Label21(2) はVB6のコントロール配列です。WinFormsでは Label21_2 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: TypeCombo のリスト初期値はFRXを参照する場合があります。実データは未移行です
+WARN: CalenderButton(8) はVB6のコントロール配列です。WinFormsでは CalenderButton_8 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: CalenderButton(0) はVB6のコントロール配列です。WinFormsでは CalenderButton_0 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: Label21(5) はVB6のコントロール配列です。WinFormsでは Label21_5 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: Label21(4) はVB6のコントロール配列です。WinFormsでは Label21_4 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: Label21(0) はVB6のコントロール配列です。WinFormsでは Label21_0 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: CalenderButton(2) はVB6のコントロール配列です。WinFormsでは CalenderButton_2 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: CalenderButton(3) はVB6のコントロール配列です。WinFormsでは CalenderButton_3 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: ReportOutputButton(0) はVB6のコントロール配列です。WinFormsでは ReportOutputButton_0 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: Label21(1) はVB6のコントロール配列です。WinFormsでは Label21_1 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: Label22(1) はVB6のコントロール配列です。WinFormsでは Label22_1 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: StampButton(7) はVB6のコントロール配列です。WinFormsでは StampButton_7 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: StampButton(6) はVB6のコントロール配列です。WinFormsでは StampButton_6 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: StampButton(5) はVB6のコントロール配列です。WinFormsでは StampButton_5 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: StampButton(4) はVB6のコントロール配列です。WinFormsでは StampButton_4 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: StampButton(3) はVB6のコントロール配列です。WinFormsでは StampButton_3 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: StampButton(2) はVB6のコントロール配列です。WinFormsでは StampButton_2 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: StampButton(1) はVB6のコントロール配列です。WinFormsでは StampButton_1 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: StampButton(0) はVB6のコントロール配列です。WinFormsでは StampButton_0 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: CalenderButton(1) はVB6のコントロール配列です。WinFormsでは CalenderButton_1 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: AddressLabel(1) はVB6のコントロール配列です。WinFormsでは AddressLabel_1 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: AddressLabel(0) はVB6のコントロール配列です。WinFormsでは AddressLabel_0 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: imlToolbarIcons(0) はVB6のコントロール配列です。WinFormsでは imlToolbarIcons_0 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: brwWebBrowser(0) はVB6のコントロール配列です。WinFormsでは brwWebBrowser_0 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: brwWebBrowser(1) はVB6のコントロール配列です。WinFormsでは brwWebBrowser_1 へ個別変換しました。配列イベント処理の移植は別途必要です
+WARN: SSTab1 のTabPictureは移行しません（.frx画像未添付）
+WARN: imlToolbarIcons(0) はTab(n).Control一覧にありません。タブ1 に推定配置しました（要確認）
+WARN: brwWebBrowser(0) はTab(n).Control一覧にありません。タブ2 に推定配置しました（要確認）
+WARN: Label11 はTab(n).Control一覧にありません。タブ1 に推定配置しました（要確認）
+WARN: Label10 はTab(n).Control一覧にありません。タブ1 に推定配置しました（要確認）
+WARN: Label9 はTab(n).Control一覧にありません。タブ1 に推定配置しました（要確認）
+WARN: Label8 はTab(n).Control一覧にありません。タブ1 に推定配置しました（要確認）
+WARN: Label12 はTab(n).Control一覧にありません。タブ1 に推定配置しました（要確認）
+WARN: Image2 はTab(n).Control一覧にありません。タブ1 に推定配置しました（要確認）
+WARN: Image1 はTab(n).Control一覧にありません。タブ1 に推定配置しました（要確認）
+WARN: Label20 はTab(n).Control一覧にありません。タブ1 に推定配置しました（要確認）
+
+=== 元.frm内のコード（参考・未移植） ===
+Attribute VB_Name = "ReportWindow"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Public lNewReportFlag As Boolean
+

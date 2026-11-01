@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <MyType>Empty</MyType>
+    <RootNamespace>VB6Migrated</RootNamespace>
+    <StartupObject>VB6Migrated.Program</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Update="ReportWindow.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="ReportWindow.Designer.vb">
+      <DependentUpon>ReportWindow.vb</DependentUpon>
+    </Compile>
+  </ItemGroup>
+</Project>
