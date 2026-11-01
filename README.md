@@ -16,9 +16,28 @@
 Java 17 以上の実行環境で、ソースをコンパイルして実行します（ビルド成果物はリポジトリには含めません）。
 
 ```bash
-javac Vb6WinFormsConverter.java
+# 文字コードを明示してコンパイル（Termux / Ubuntuでも利用可能）
+bash build.sh
+
+# コンパイル後に実行
 java Vb6WinFormsConverter ReportWindowCoorsDummy.frm output
 ```
+
+ビルドスクリプトを使わず直接コンパイルする場合は、必ず `-encoding UTF-8` を指定してください。
+
+```bash
+javac -encoding UTF-8 Vb6WinFormsConverter.java
+```
+
+**重要:** このJavaソースには日本語のコメントや文字列が含まれます。環境によって `javac` の既定文字コードが `US-ASCII` になり、`unmappable character for encoding US-ASCII` が発生します。ソースを削除・変更せず、上記のように `-encoding UTF-8` を指定してください。
+
+実行時にメッセージの日本語が `???` になる場合は、Ubuntuの端末でUTF-8ロケールを有効にしてください。
+
+```bash
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+```
+
 
 オプションでDPIを指定できます。例：
 
