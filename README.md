@@ -11,22 +11,36 @@
 - `ReportWindow_coordinate_audit.csv`：元のTwips座標、変換後ピクセル座標、タブ所属の確認用CSV。
 - `ReportWindow_migration_report.txt`：未移行項目、タブ所属の推定、コントロール配列の変更など。
 
+## Eclipseで開く（Java 17）
+
+このリポジトリは **Eclipse標準Javaプロジェクト** として構成しています。Maven・Gradle・追加ライブラリは不要です。
+
+1. Java 17 JDKと、Eclipse IDE for Java Developers（Java 17対応版）を用意します。
+2. GitHubから `convertVB6Form` をcloneします。既にclone済みなら `git pull` で更新してください。
+3. Eclipseで **File → Import → General → Existing Projects into Workspace** を選びます。
+4. **Select root directory** にcloneした `convertVB6Form` フォルダを指定し、表示されたプロジェクトを **Finish** で取り込みます。
+5. `src/Vb6WinFormsConverter.java` を開きます。Eclipse側は `JavaSE-17`、ソース文字コード `UTF-8` に設定済みです。
+6. 実行する場合は **Run → Run Configurations → Java Application** でメインクラス `Vb6WinFormsConverter` を選択し、**Arguments → Program arguments** に入力.frmのパスと出力先フォルダを指定します。例：`C:\\VB6Source\\ReportWindowCoorsDummy.frm C:\\VBNetConverted`
+
+出力する `bin/` と `output/` はGit管理の対象外です。Eclipseの自動ビルドでも `bin/` にクラスファイルが生成されます。EclipseにJRE System Libraryのエラーが出る場合は、**Window → Preferences → Java → Installed JREs** でJava 17 JDKを追加・選択してください。
+
 ## Javaで変換する
 
 Java 17 以上の実行環境で、ソースをコンパイルして実行します（ビルド成果物はリポジトリには含めません）。
 
 ```bash
-# 文字コードを明示してコンパイル（Termux / Ubuntuでも利用可能）
+# 文字コードを明示してbinへコンパイル（Termux / Ubuntuでも利用可能）
 bash build.sh
 
 # コンパイル後に実行
-java Vb6WinFormsConverter ReportWindowCoorsDummy.frm output
+java -Dfile.encoding=UTF-8 -cp bin Vb6WinFormsConverter ReportWindowCoorsDummy.frm output
 ```
 
 ビルドスクリプトを使わず直接コンパイルする場合は、必ず `-encoding UTF-8` を指定してください。
 
 ```bash
-javac -encoding UTF-8 Vb6WinFormsConverter.java
+mkdir -p bin
+javac -encoding UTF-8 --release 17 -d bin src/Vb6WinFormsConverter.java
 ```
 
 **重要:** このJavaソースには日本語のコメントや文字列が含まれます。環境によって `javac` の既定文字コードが `US-ASCII` になり、`unmappable character for encoding US-ASCII` が発生します。ソースを削除・変更せず、上記のように `-encoding UTF-8` を指定してください。
@@ -42,7 +56,7 @@ export LC_ALL=C.UTF-8
 オプションでDPIを指定できます。例：
 
 ```bash
-java Vb6WinFormsConverter ReportWindowCoorsDummy.frm output 120
+java -Dfile.encoding=UTF-8 -cp bin Vb6WinFormsConverter ReportWindowCoorsDummy.frm output 120
 ```
 
 **推奨はまず96 DPI**です。フォームがTwips座標系（標準 `ScaleMode=1`）であることが前提です。変換された `.vb` ファイルはUTF-8で保存されます。VB6の元 `.frm` はWindows-31Jで読み込み、上書きしません。
@@ -84,7 +98,7 @@ Windows Forms の `WebBrowser` は旧式のブラウザコンポーネントな�
 
 ## リポジトリのファイル
 
-- `Vb6WinFormsConverter.java`: Java 17 ソースコード
+- `src/Vb6WinFormsConverter.java`: Java 17 ソースコード（Eclipseのsrcフォルダ）
 - `sample/`: 添付されたダミーフォームから生成した .NET 8 WinForms のサンプルとレポート
 - 元の `.frm` や `.frx` は公開リポジトリに含めません。各自のローカルファイルを指定してください。
 - 生成した `Designer.vb` は Windows 上でのビルド・デザイナー表示を確認してから本番利用してください。
