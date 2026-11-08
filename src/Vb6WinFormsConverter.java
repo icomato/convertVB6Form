@@ -17,6 +17,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -160,14 +164,39 @@ public final class Vb6WinFormsConverter {
 		// 移行結果の検証用データと警告レポートは毎回更新する。
 		Files.writeString(audit, toCoordinateAuditCsv(st), StandardCharsets.UTF_8);
 		Files.writeString(report, toMigrationReport(st, source), StandardCharsets.UTF_8);
-		System.out.println("出力: " + designer);
-		System.out.println("コードビハインド: " + codeBehind);
-		System.out.println("Visual Studioプロジェクト: " + project);
-		System.out.println("座標CSV: " + audit);
-		System.out.println("移行レポート: " + report);
-		System.out.println("コントロール: " + st.getAll().size() + " (出力 " + st.getVisualCount()
-		+ " / 省略 " + st.getIgnoredCount() + "), タブ座標補正: " + st.getRemappedTabCount()
-		+ ", 所属タブ推定: " + st.getUnknownTabCount() + ", 警告: " + st.getWarnings().size());
+		// 実行ごとのロガーを使い、親ハンドラから標準エラーへ重複出力されるのを防ぐ。
+		Logger logger = Logger.getAnonymousLogger();
+		logger.setUseParentHandlers(false);
+		logger.setLevel(Level.INFO);
+		// 出力先に含まれる%を、FileHandlerのパターン指定として解釈させない。
+		String logPattern = out.resolve("convertVB6Form.log").toString().replace("%", "%%");
+		FileHandler fileHandler = new FileHandler(logPattern, true);
+		try {
+			fileHandler.setEncoding(StandardCharsets.UTF_8.name());
+			fileHandler.setFormatter(new SimpleFormatter());
+			logger.addHandler(fileHandler);
+			printInfo(logger, "出力: " + designer);
+			printInfo(logger, "コードビハインド: " + codeBehind);
+			printInfo(logger, "Visual Studioプロジェクト: " + project);
+			printInfo(logger, "座標CSV: " + audit);
+			printInfo(logger, "移行レポート: " + report);
+			printInfo(logger, "コントロール: " + st.getAll().size() + " (出力 " + st.getVisualCount()
+			+ " / 省略 " + st.getIgnoredCount() + "), タブ座標補正: " + st.getRemappedTabCount()
+			+ ", 所属タブ推定: " + st.getUnknownTabCount() + ", 警告: " + st.getWarnings().size());
+		} finally {
+			logger.removeHandler(fileHandler);
+			fileHandler.close();
+		}
+	}
+
+	/**
+	* 同じメッセージを標準出力とINFOレベルのファイルログへ出力する。
+	* @param logger ファイルハンドラを登録済みの実行単位のロガー
+	* @param message 両方の出力先に記録するメッセージ
+	*/
+	private static void printInfo(Logger logger, String message) {
+		System.out.println(message);
+		logger.info(message);
 	}
 
 	/**

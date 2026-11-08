@@ -10,6 +10,10 @@
 - `ReportWindow_Migrated.vbproj`：.NET 8 Windows Forms のVisual Studio用プロジェクト（既存ファイルは上書きしません）。
 - `ReportWindow_coordinate_audit.csv`：元のTwips座標、変換後ピクセル座標、タブ所属の確認用CSV。
 - `ReportWindow_migration_report.txt`：未移行項目、タブ所属の推定、コントロール配列の変更など。
+- `convertVB6Form.log`：変換成功時の出力先・件数など、標準出力と同じ完了メッセージを日時・INFOレベル付きで記録するUTF-8ログ。指定した出力フォルダに作成し、再実行時は追記します。
+
+完了メッセージはコンソール（標準出力）とログファイルの両方に出力します。Java標準の`java.util.logging`を使用するため、ログ用ライブラリの追加は不要です。
+入力不正などによる変換失敗は従来どおり標準エラーで通知し、この完了ログの対象には含めません。移行上の警告の詳細は従来どおりmigration_reportを確認してください。
 
 ## Eclipseで開く（Java 21）
 

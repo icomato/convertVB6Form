@@ -7,6 +7,7 @@
 
 # Generated local output
 /output/
+convertVB6Form.log*
 
 # Visual Studio / .NET
 .vs/

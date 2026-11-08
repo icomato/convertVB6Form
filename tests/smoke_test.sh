@@ -27,8 +27,23 @@ End
 Attribute VB_Name = "Basic"
 FORM
 
-java -Dfile.encoding=UTF-8 -cp bin Vb6WinFormsConverter \
-    "$work_dir/Basic.frm" "$work_dir/output" >/dev/null
+java -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -cp bin Vb6WinFormsConverter \
+    "$work_dir/Basic.frm" "$work_dir/output" >"$work_dir/stdout.txt" 2>"$work_dir/stderr.txt"
+
+# 完了メッセージが標準出力とUTF-8ログの両方にあり、標準エラーには重複しないこと。
+test "$(wc -l < "$work_dir/stdout.txt")" -eq 6
+test ! -s "$work_dir/stderr.txt"
+while IFS= read -r message; do
+    grep -Fq -- "${message%$'\r'}" "$work_dir/output/convertVB6Form.log"
+done < "$work_dir/stdout.txt"
+grep -Fq 'コントロール:' "$work_dir/output/convertVB6Form.log"
+
+# 再実行ではログを追記し、ハンドラを閉じた後にロックファイルが残らないこと。
+java -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -cp bin Vb6WinFormsConverter \
+    "$work_dir/Basic.frm" "$work_dir/output" >"$work_dir/stdout-second.txt" 2>"$work_dir/stderr-second.txt"
+test ! -s "$work_dir/stderr-second.txt"
+test "$(grep -Fc 'コントロール:' "$work_dir/output/convertVB6Form.log")" -eq 2
+test ! -e "$work_dir/output/convertVB6Form.log.lck"
 
 grep -Fq 'Me.Label1.Location = New System.Drawing.Point(10, 20)' \
     "$work_dir/output/Basic.Designer.vb"
