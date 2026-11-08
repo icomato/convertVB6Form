@@ -11,5 +11,5 @@ if ! command -v javac >/dev/null 2>&1; then
 fi
 
 mkdir -p bin
-javac -encoding UTF-8 --release 21 -d bin src/*.java
+javac -encoding UTF-8 --release 21 -d bin src/*.java src/entity/*.java
 printf 'Build completed: bin/Vb6WinFormsConverter.class\n'

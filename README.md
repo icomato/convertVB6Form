@@ -41,7 +41,7 @@
 - クラスに`@author`・`@version`・`@since`、メソッドに`@param`・`@return`・必要な`@throws`を記載します。
 - Javaの標準APIのみを使用し、Java 21でビルド可能な構成を維持します。
 
-**互換性上の例外:** 既存の`java -cp bin Vb6WinFormsConverter ...`コマンドを変更しないよう、現時点ではデフォルトパッケージを保持します。将来パッケージを導入するときは、利用者の実行コマンドとの互換性を検討してください。
+**互換性上の例外:** 既存の`java -cp bin Vb6WinFormsConverter ...`コマンドを変更しないよう、起動クラス`Vb6WinFormsConverter`はデフォルトパッケージを保持します。データ保持クラスは`entity`パッケージに配置しています。将来パッケージを導入するときは、利用者の実行コマンドとの互換性を検討してください。
 
 Eclipseでは`Ctrl+Shift+F`で整形できます。プロジェクトの`.settings/org.eclipse.jdt.core.prefs`と`.editorconfig`にタブ（表示幅4）・UTF-8の設定を登録しています。
 
@@ -115,7 +115,7 @@ Future規約の完全な自動判定ではなく、機械的に検査できる�
 
 - **日本語Javadoc、内容の正しさ、`@since`、フィールド説明はレビューで確認**します。日本語文字の有無だけでは説明品質を判定できません。
   `@throws`は宣言・明示的なthrowを確認しますが、呼び出し先から伝播するすべての例外や型の継承関係まで解決しません。
-- **デフォルトパッケージは既存の起動コマンドとの互換性のため維持**します。`PackageDeclaration`は有効にしていません。
+- **起動クラスのデフォルトパッケージは既存の起動コマンドとの互換性のため維持**します。Entityクラスは`entity`パッケージを使用します。`PackageDeclaration`は有効にしていません。
 - **インデントはタブのみ、表示幅は4**とします。スペースによるインデントやタブとスペースの混在は、コメント行・継続行も含め`RegexpSingleline`で検出します。
   演算子間の空白や文字列内の空白は使用できます。Javadocの行頭`*`の前にもスペースを置きません。EclipseのJavadoc自動整形は無効にし、この形式を維持します。
   インデントの段数はEclipseの共有formatter設定とレビューで確認します。`Indentation`による段数の強制は行いません。
@@ -165,20 +165,20 @@ bash tests/smoke_test.sh
 
 ## Javaソースの構成とJavadoc
 
-ソースコードは **1ファイル1クラス** で構成し、内部クラスは使用していません。Java 21の標準APIのみで動作し、Eclipseからもそのまま編集できます。
+ソースコードは **1ファイル1クラス** で構成し、内部クラスは使用していません。データ保持クラスはクラス名に`Entity`を付け、`src/entity/`（`package entity`）に配置しています。メンバ変数の定義とメソッド・コンストラクタのJavadocの間には空行を入れています。Java 21の標準APIのみで動作し、Eclipseからもそのまま編集できます。
 
 | ファイル | 担当処理 |
 | --- | --- |
 | `Vb6WinFormsConverter.java` | .frm解析、Twips座標の変換、SSTabの補正、VB.NETファイル・監査資料の出力 |
-| `Vb6FormNode.java` | コントロール階層、属性、Twips・Pixel座標の保持 |
-| `Vb6TabInfo.java` | SSTabのタブ枚数、子コントロールの所属、TabPageの管理 |
-| `Vb6ConversionState.java` | 入力フォームの変換状態、警告、出力件数の管理 |
+| `entity/Vb6FormNodeEntity.java` | コントロール階層、属性、Twips・Pixel座標の保持 |
+| `entity/Vb6TabInfoEntity.java` | SSTabのタブ枚数、子コントロールの所属、TabPageの管理 |
+| `entity/Vb6ConversionStateEntity.java` | 入力フォームの変換状態、警告、出力件数の管理 |
 
-各クラス、メソッド、主要フィールドに日本語のJavadocを記載しています。JDKの`javadoc`コマンドでHTMLリファレンスを生成できます。`-private`を指定することで、内部処理に使うパッケージ非公開クラスやprivateメソッドもドキュメントに含めます。
+各クラス、メソッド、主要フィールドに日本語のJavadocを記載しています。JDKの`javadoc`コマンドでHTMLリファレンスを生成できます。`-private`を指定することで、内部処理に使うprivateメソッドもドキュメントに含めます。
 
 ```bash
 javadoc -private -encoding UTF-8 -charset UTF-8 -docencoding UTF-8 \
-  -d docs/api src/*.java
+  -d docs/api src/*.java src/entity/*.java
 ```
 
 生成物の`docs/api/`はGitの管理対象から除外しています。
@@ -199,7 +199,7 @@ java -Dfile.encoding=UTF-8 -cp bin Vb6WinFormsConverter ReportWindowCoorsDummy.f
 
 ```bash
 mkdir -p bin
-javac -encoding UTF-8 --release 21 -d bin src/*.java
+javac -encoding UTF-8 --release 21 -d bin src/*.java src/entity/*.java
 ```
 
 **重要:** このJavaソースには日本語のコメントや文字列が含まれます。環境によって `javac` の既定文字コードが `US-ASCII` になり、`unmappable character for encoding US-ASCII` が発生します。ソースを削除・変更せず、上記のように `-encoding UTF-8` を指定してください。
@@ -267,9 +267,9 @@ Windows Forms の `WebBrowser` は旧式のブラウザコンポーネントな�
 ## リポジトリのファイル
 
 - `src/Vb6WinFormsConverter.java`：変換処理本体・VB.NETコード生成
-- `src/Vb6FormNode.java`：VB6コントロールと座標・親子関係の保持
-- `src/Vb6TabInfo.java`：SSTabのタブ所属とTabPageの管理
-- `src/Vb6ConversionState.java`：フォーム単位の変換情報・警告と件数の管理
+- `src/entity/Vb6FormNodeEntity.java`：VB6コントロールと座標・親子関係の保持
+- `src/entity/Vb6TabInfoEntity.java`：SSTabのタブ所属とTabPageの管理
+- `src/entity/Vb6ConversionStateEntity.java`：フォーム単位の変換情報・警告と件数の管理
 - `sample/`: 添付されたダミーフォームから生成した .NET 8 WinForms のサンプルとレポート
 - 元の `.frm` や `.frx` は公開リポジトリに含めません。各自のローカルファイルを指定してください。
 - 生成した `Designer.vb` は Windows 上でのビルド・デザイナー表示を確認してから本番利用してください。

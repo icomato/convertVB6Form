@@ -1,3 +1,5 @@
+package entity;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,9 +14,9 @@ import java.util.Map;
 * @version 1.0 (Javaコーディング規約対応)
 * @since 1.0
 */
-final class Vb6TabInfo {
+public final class Vb6TabInfoEntity {
 	/** SSTabコントロール本体。 */
-	private Vb6FormNode tab;
+	private Vb6FormNodeEntity tab;
 	/** タブの枚数。 */
 	private int count;
 	/** SSTab見出しの高さ（Twips）。 */
@@ -22,13 +24,19 @@ final class Vb6TabInfo {
 	/** 元コントロール識別子と所属タブ番号の対応表。 */
 	private final Map<String, Integer> assignments = new HashMap<>();
 	/** 生成するTabPageのノード一覧。 */
-	private final List<Vb6FormNode> pages = new ArrayList<>();
+	private final List<Vb6FormNodeEntity> pages = new ArrayList<>();
+
+	/**
+	* SSTabの所属情報と生成ページを保持する空の管理情報を作成する。
+	*/
+	public Vb6TabInfoEntity() {
+	}
 
 	/**
 	* 対象のSSTabノードを取得する。
-	* @return 対象のSSTabノード。コレクションの場合はパッケージ内で変更可能な参照
+	* @return 対象のSSTabノード。コレクションの場合は変換処理から変更可能な参照
 	*/
-	Vb6FormNode getTab() {
+	public Vb6FormNodeEntity getTab() {
 		return tab;
 	}
 
@@ -36,15 +44,15 @@ final class Vb6TabInfo {
 	* 対象のSSTabノードを設定する。
 	* @param value 新しい対象のSSTabノード
 	*/
-	void setTab(Vb6FormNode value) {
+	public void setTab(Vb6FormNodeEntity value) {
 		this.tab = value;
 	}
 
 	/**
 	* SSTabが持つタブ枚数を取得する。
-	* @return SSTabが持つタブ枚数。コレクションの場合はパッケージ内で変更可能な参照
+	* @return SSTabが持つタブ枚数。コレクションの場合は変換処理から変更可能な参照
 	*/
-	int getCount() {
+	public int getCount() {
 		return count;
 	}
 
@@ -52,15 +60,15 @@ final class Vb6TabInfo {
 	* SSTabが持つタブ枚数を設定する。
 	* @param value 新しいSSTabが持つタブ枚数
 	*/
-	void setCount(int value) {
+	public void setCount(int value) {
 		this.count = value;
 	}
 
 	/**
 	* タブ見出しの高さ（Twips）を取得する。
-	* @return タブ見出しの高さ（Twips）。コレクションの場合はパッケージ内で変更可能な参照
+	* @return タブ見出しの高さ（Twips）。コレクションの場合は変換処理から変更可能な参照
 	*/
-	int getTabHeightTwips() {
+	public int getTabHeightTwips() {
 		return tabHeightTwips;
 	}
 
@@ -68,23 +76,23 @@ final class Vb6TabInfo {
 	* タブ見出しの高さ（Twips）を設定する。
 	* @param value 新しいタブ見出しの高さ（Twips）
 	*/
-	void setTabHeightTwips(int value) {
+	public void setTabHeightTwips(int value) {
 		this.tabHeightTwips = value;
 	}
 
 	/**
 	* コントロールから所属タブ番号への対応表を取得する。
-	* @return コントロールから所属タブ番号への対応表。コレクションの場合はパッケージ内で変更可能な参照
+	* @return コントロールから所属タブ番号への対応表。コレクションの場合は変換処理から変更可能な参照
 	*/
-	Map<String, Integer> getAssignments() {
+	public Map<String, Integer> getAssignments() {
 		return assignments;
 	}
 
 	/**
 	* 生成するTabPageノードの一覧を取得する。
-	* @return 生成するTabPageノードの一覧。コレクションの場合はパッケージ内で変更可能な参照
+	* @return 生成するTabPageノードの一覧。コレクションの場合は変換処理から変更可能な参照
 	*/
-	List<Vb6FormNode> getPages() {
+	public List<Vb6FormNodeEntity> getPages() {
 		return pages;
 	}
 }
