@@ -10,3 +10,4 @@ org.eclipse.jdt.core.formatter.lineSplit=120
 org.eclipse.jdt.core.formatter.insert_space_after_comma_in_method_invocation_arguments=insert
 org.eclipse.jdt.core.formatter.use_tabs_only_for_leading_indentations=false
 org.eclipse.jdt.core.formatter.comment.format_javadoc_comments=false
+org.eclipse.jdt.core.formatter.blank_lines_between_methods=1

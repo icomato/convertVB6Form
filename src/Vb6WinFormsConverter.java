@@ -57,6 +57,7 @@ public final class Vb6WinFormsConverter {
 	*/
 	private Vb6WinFormsConverter() {
 	}
+
 	/**
 	* VB6フォームを読み込んでVB.NET WinFormsのデザイナーと検証用資料を生成する。
 	* 使用方法: java -cp bin Vb6WinFormsConverter input.frm output_dir [dpi]。既存のコードビハインドは上書きしない。
@@ -410,6 +411,7 @@ public final class Vb6WinFormsConverter {
 			}
 		}
 	}
+
 	/**
 	* フィールド名を大文字小文字を区別せず一意にする。
 	* @param s 使用済み名前の管理状態
@@ -424,6 +426,7 @@ public final class Vb6WinFormsConverter {
 		}
 		return name;
 	}
+
 	/**
 	* VB6名の使用できない文字と予約語を処理してVB.NET識別子へ正規化する。
 	* @param name 元の名前
@@ -447,6 +450,7 @@ public final class Vb6WinFormsConverter {
 		}
 		return result;
 	}
+
 	/**
 	* VB6のコントロール型をWinFormsの完全修飾クラス名へ割り当てる。
 	* COM固有の処理は移行しない。
@@ -475,6 +479,7 @@ public final class Vb6WinFormsConverter {
 			default -> null;
 		};
 	}
+
 	/**
 	* 数値プロパティを読み取り、末尾のVB6コメントを取り除く。
 	* @param value 属性値。未設定ならnull
@@ -492,6 +497,7 @@ public final class Vb6WinFormsConverter {
 			return fallback;
 		}
 	}
+
 	/**
 	* Twipsを指定DPIに対応するピクセルへ換算する。1inch=1440Twips。
 	* @param twips 元座標またはサイズ
@@ -501,6 +507,7 @@ public final class Vb6WinFormsConverter {
 	private static int toPixels(long twips, double dpi) {
 		return (int) Math.round(twips * dpi / 1440.0);
 	}
+
 	/**
 	* VB6文字列リテラルを取り出し、二重の引用符を元に戻す。
 	* @param vbValue .frmの元の値
@@ -535,6 +542,7 @@ public final class Vb6WinFormsConverter {
 		}
 		return b.toString();
 	}
+
 	/**
 	* 文字列をVB.NETの引用符・改行を適切に含む式へ変換する。
 	* @param javaString 変換元文字列
@@ -544,6 +552,7 @@ public final class Vb6WinFormsConverter {
 		return "\"" + javaString.replace("\"", "\"\"").replace("\r", "")
 		.replace("\n", "\" & vbCrLf & \"") + "\"";
 	}
+
 	/**
 	* 数値で記述されたVB6真偽値を判定する。
 	* @param value VB6属性値
@@ -552,6 +561,7 @@ public final class Vb6WinFormsConverter {
 	private static boolean isVbTrue(String value) {
 		return parseInteger(value, 0) != 0;
 	}
+
 	/**
 	* JavaのbooleanをVB.NETリテラルへ変換する。
 	* @param value 真偽値
@@ -560,6 +570,7 @@ public final class Vb6WinFormsConverter {
 	private static String toVbBooleanLiteral(boolean value) {
 		return value ? "True" : "False";
 	}
+
 	/**
 	* フィールド名をMe.で修飾する。
 	* @param n フィールド名
@@ -568,6 +579,7 @@ public final class Vb6WinFormsConverter {
 	private static String toControlReference(String n) {
 		return "Me." + n;
 	}
+
 	/**
 	* VB.NETプロパティ代入の対象を選択する。
 	* @param n コントロールノード
@@ -576,6 +588,7 @@ public final class Vb6WinFormsConverter {
 	private static String toPropertyTarget(Vb6FormNode n) {
 		return "VB.Form".equals(n.getVbType()) ? "Me" : toControlReference(n.getField());
 	}
+
 	/**
 	* 文字列バッファに1行をCRLF付きで追記する。
 	* @param b 生成先
@@ -584,6 +597,7 @@ public final class Vb6WinFormsConverter {
 	private static void appendLine(StringBuilder b, String s) {
 		b.append(s).append("\r\n");
 	}
+
 	/**
 	* VB.NETのコントロールプロパティ代入文を生成する。
 	* @param b 生成先
@@ -594,6 +608,7 @@ public final class Vb6WinFormsConverter {
 	private static void appendPropertyAssignment(StringBuilder b, Vb6FormNode n, String property, String expression) {
 		appendLine(b, "        " + toPropertyTarget(n) + "." + property + " = " + expression);
 	}
+
 	/**
 	* ImageListなど、Controls.Addをしない非表示コンポーネントを判定する。
 	* @param n 対象ノード
@@ -602,6 +617,7 @@ public final class Vb6WinFormsConverter {
 	private static boolean isNonVisual(Vb6FormNode n) {
 		return n.getWinType() != null && (n.getWinType().endsWith(".ImageList") || n.getWinType().endsWith(".OpenFileDialog"));
 	}
+
 	/**
 	* 単一コントロールの位置、サイズ、文字、フォント、種別固有の属性を生成する。
 	* LabelはCaption・WordWrap・AutoSizeから文字切れを避ける設定を決定する。
@@ -798,6 +814,7 @@ public final class Vb6WinFormsConverter {
 			}
 		}
 	}
+
 	/**
 	* VB6のOLE_COLORをSystem.Drawing.Colorの式へ変換する。通常色はBGR、システム色は一部対応。
 	* @param raw VB6の色コード
@@ -827,6 +844,7 @@ public final class Vb6WinFormsConverter {
 		int b = (int) ((value >> 16) & 255), g = (int) ((value >> 8) & 255), r = (int) (value & 255);
 		return "System.Drawing.Color.FromArgb(" + r + ", " + g + ", " + b + ")";
 	}
+
 	/**
 	* WinFormsのDesigner.vbを生成する。
 	* コントロール生成、プロパティ設定、TabPageと親子関係の割当、フィールド宣言を順に行う。
@@ -984,6 +1002,7 @@ public final class Vb6WinFormsConverter {
 		appendLine(out, "End Class");
 		return out.toString();
 	}
+
 	/**
 	* VB6コードから単純なPublicフィールドのみを抽出する。イベントや業務ロジックは移植しない。
 	* @param code 元VB6コード
@@ -997,6 +1016,7 @@ public final class Vb6WinFormsConverter {
 		}
 		return output.toString();
 	}
+
 	/**
 	* CSVフィールドを引用符で囲み、内部の引用符をエスケープする。
 	* @param value 出力する値
@@ -1005,6 +1025,7 @@ public final class Vb6WinFormsConverter {
 	private static String toCsvField(String value) {
 		return "\"" + value.replace("\"", "\"\"") + "\"";
 	}
+
 	/**
 	* 元のTwips座標、換算後のPixel座標、親子関係などをCSVに出力する。
 	* @param s 変換状態
@@ -1028,6 +1049,7 @@ public final class Vb6WinFormsConverter {
 		}
 		return b.toString();
 	}
+
 	/**
 	* 変換条件、補正・推定件数、警告、未移植コードをレポートに出力する。
 	* @param s 変換状態

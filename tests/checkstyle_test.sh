@@ -102,4 +102,30 @@ for line in 3 5 8 13 17; do
     lint -o "$work_dir/missing-blank.xml" "$work_dir/MissingBlank.java"
     grep -q '\.RegexpMultilineCheck' "$work_dir/missing-blank.xml"
 done
+# メソッド間・コンストラクタ後の空行（Javadoc・アノテーションあり）を検査する。
+cat > "$work_dir/MethodSpacing.java" <<'JAVA'
+class MethodSpacing {
+    MethodSpacing() {
+    }
+
+    /** 最初のメソッド。 */
+    void first() {
+    }
+
+    /** 次のメソッド。 */
+    @Deprecated
+    void second() {
+    }
+}
+JAVA
+lint -o "$work_dir/method-spacing.xml" "$work_dir/MethodSpacing.java"
+if grep -q '\.EmptyLineSeparatorCheck' "$work_dir/method-spacing.xml"; then
+    cat "$work_dir/method-spacing.xml"
+    exit 1
+fi
+for line in 4 8; do
+    sed "${line}d" "$work_dir/MethodSpacing.java" > "$work_dir/MissingMethodSpace.java"
+    lint -o "$work_dir/missing-method-space.xml" "$work_dir/MissingMethodSpace.java"
+    grep -q '\.EmptyLineSeparatorCheck' "$work_dir/missing-method-space.xml"
+done
 printf 'Checkstyle test passed (sources clean; invalid fixture detected).\n'

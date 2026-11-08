@@ -19,6 +19,10 @@
         <property name="message" value="インデントにスペースを使用せず、タブのみを使用してください。"/>
     </module>
     <module name="TreeWalker">
+        <!-- Javadoc・アノテーションを含むメソッド間を空行で区切る。 -->
+        <module name="EmptyLineSeparator">
+            <property name="tokens" value="METHOD_DEF, CTOR_DEF, COMPACT_CTOR_DEF"/>
+        </module>
         <module name="PackageName"/>
         <module name="TypeName"/>
         <module name="MethodName"/>

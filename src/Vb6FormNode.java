@@ -69,6 +69,7 @@ final class Vb6FormNode {
 		this.name = name;
 		this.parent = parent;
 	}
+
 	/**
 	* VB6の属性値を取得する。
 	* @param key 属性名
@@ -77,6 +78,7 @@ final class Vb6FormNode {
 	String getProperty(String key) {
 		return props.get(key);
 	}
+
 	/**
 	* 指定属性が存在するか調べる。
 	* @param key 属性名
