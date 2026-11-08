@@ -35,10 +35,10 @@
 | `Vb6TabInfo.java` | SSTabのタブ枚数、子コントロールの所属、TabPageの管理 |
 | `Vb6ConversionState.java` | 入力フォームの変換状態、警告、出力件数の管理 |
 
-各クラス、メソッド、主要フィールドに日本語のJavadocを記載しています。JDKの`javadoc`コマンドでHTMLリファレンスを生成できます。
+各クラス、メソッド、主要フィールドに日本語のJavadocを記載しています。JDKの`javadoc`コマンドでHTMLリファレンスを生成できます。`-private`を指定することで、内部処理に使うパッケージ非公開クラスやprivateメソッドもドキュメントに含めます。
 
 ```bash
-javadoc -encoding UTF-8 -charset UTF-8 -docencoding UTF-8 \
+javadoc -private -encoding UTF-8 -charset UTF-8 -docencoding UTF-8 \
   -d docs/api src/*.java
 ```
 
