@@ -47,14 +47,37 @@ public final class Vb6WinFormsConverter {
 	/** VB6フォームの読み込みに使用するWindows-31J文字コード。 */
 	private static final Charset VB6_CHARSET = Charset.forName("windows-31j");
 	// .frmのBegin/Endでコントロール階層を、BeginProperty/EndPropertyでFont等の属性を認識する。
-	/** コントロールBegin行の解析用正規表現。 */
+	/**
+	* コントロールの開始宣言「Begin 型名 要素名」の行全体に一致する。
+	* 前後の空白を許可し、型名には英数字・アンダースコア・ピリオドを許可する。
+	* 要素名は空白を含まない1語で、キーワードの大文字小文字は区別する。
+	* 例: 「Begin VB.CommandButton Command1」→ グループ1はVB.CommandButton、
+	* グループ2はCommand1。「Begin VB.Label」は要素名がないため一致しない。
+	*/
 	private static final Pattern BEGIN = Pattern.compile("^\\s*Begin\\s+([\\w.]+)\\s+([^\\s]+)\\s*$");
-	/** BeginProperty行の解析用正規表現。 */
+	/**
+	* 複合属性の開始宣言「BeginProperty 属性名」の行全体に一致する。
+	* 属性名は空白を含まない1語で、その後の空白と追加情報は省略できる。
+	* 例: 「BeginProperty Font」と「BeginProperty Font {GUID}」はどちらも一致し、
+	* グループ1からFontを取得する。「EndProperty」は一致しない。
+	*/
 	private static final Pattern BEGIN_PROPERTY = Pattern.compile("^\\s*BeginProperty\\s+(\\S+)(?:\\s+.*)?$");
-	/** プロパティ代入行の解析用正規表現。 */
+	/**
+	* 「属性名 = 値」の行全体に一致し、前後と等号の両側の空白を許可する。
+	* グループ1は等号を含まない属性名、グループ2は空文字列も許容する属性値。
+	* 例: 「Caption = "住所"」→ Captionと"住所"、
+	* 「ClientWidth = 3000」→ ClientWidthと3000を取り出す。
+	* 「Text =」も一致するが、等号がない「End」は一致しない。
+	*/
 	private static final Pattern PROPERTY = Pattern.compile("^\\s*([^=]+?)\\s*=\\s*(.*?)\\s*$");
 	// SSTab固有の「Tab(n).Control(m)」形式から子要素の所属タブを抽出する。
-	/** SSTabのTab(n).Control(m)を認識する正規表現。 */
+	/**
+	* SSTabの子コントロール所属を示す「Tab(数字).Control(数字)」に一致する。
+	* 括弧とピリオドは文字そのものを表し、数字は半角数字1桁以上。
+	* 呼び出し側のmatchesで属性名全体を照合し、大文字小文字は区別しない。
+	* 例: 「Tab(1).Control(12)」→ グループ1は1、グループ2は12。
+	* 「tab(0).control(2)」も一致し、「Tab(A).Control(0)」は一致しない。
+	*/
 	private static final Pattern TAB_CONTROL = Pattern.compile("Tab\\((\\d+)\\)\\.Control\\((\\d+)\\)", Pattern.CASE_INSENSITIVE);
 	// 非選択タブのコントロールが、左方向へ75000Twips移動して保存されるケースを補正する。
 	/** SSTabが非表示タブを退避させる際に用いるTwipsオフセット。 */
@@ -262,6 +285,8 @@ public final class Vb6WinFormsConverter {
 		Vb6ConversionStateEntity s = new Vb6ConversionStateEntity();
 		String raw = Files.readString(source, VB6_CHARSET);
 		// splitの-1は末尾の空行も保持する指定。元コードをレポートに残すため省略しない。
+		// 改行はCRLF（\r\n）またはLF（\n）に一致し、単独のCRでは分割しない。
+		// 例: "Begin\r\nEnd\n" → ["Begin", "End", ""]。最後の空要素も残す。
 		String[] lines = raw.split("\\r?\\n", -1);
 		// Beginでpush、EndでpopすることでVB6のネスト構造を復元する。
 		Deque<Vb6FormNodeEntity> stack = new ArrayDeque<>();
@@ -366,6 +391,10 @@ public final class Vb6WinFormsConverter {
 	*/
 	private static void resolveLayout(Vb6ConversionStateEntity s) {
 		// VB6のVB_Name（見つからなければフォーム名）を出力先のクラス名に採用。
+		// 複数行モードで、行頭の「Attribute VB_Name = "空でない名前"」を部分検索する。
+		// 等号前後の空白は任意。行頭の空白は許可せず、大文字小文字も区別する。
+		// 例: Attribute VB_Name = "ReportWindow" → グループ1はReportWindow。
+		// Attribute VB_Name = "" は名前が空のため一致しない。
 		Matcher classMatch = Pattern.compile("(?m)^Attribute VB_Name\\s*=\\s*\"([^\"]+)\"")
 		.matcher(s.getVb6Code());
 		// VB_Nameが見つかればその値を、見つからなければフォームの要素名をクラス名に使う。
@@ -584,6 +613,8 @@ public final class Vb6WinFormsConverter {
 	* @return VB.NET識別子の候補
 	*/
 	private static String toSafeIdentifier(String name) {
+		// Unicodeの文字（\p{L}）・数字（\p{N}）・アンダースコア以外の各文字に一致する。
+		// 一致した文字を1文字ずつ「_」に置換する。例: 「受注-Form 1」→「受注_Form_1」。
 		String result = name.replaceAll("[^\\p{L}\\p{N}_]", "_");
 
 		// 名前が空になった場合も、有効な識別子の候補を用意する。
@@ -652,6 +683,8 @@ public final class Vb6WinFormsConverter {
 			return fallback;
 		}
 		try {
+			// 空白1文字以上と直後の「'」に一致し、VB6の末尾コメントを分離する。
+			// 例: 「120 'Twips」→ ["120", "Twips"]。「120'Twips」は空白がなく分割しない。
 			// 最大2分割の先頭（値部分）から空白を除き、整数として読み取った値を返す。
 			return Integer.parseInt(value.split("\\s+'", 2)[0].trim());
 		} catch (NumberFormatException ex) {
@@ -689,6 +722,8 @@ public final class Vb6WinFormsConverter {
 
 		// 最大2分割の先頭を取り出し、末尾のVB6コメントを除いた値を返す。
 		if (!t.startsWith("\"")) {
+			// 空白1文字以上と「'」を区切りにし、引用符で囲まれていない値の末尾コメントを分離する。
+			// 例: 「Enabled '説明」→ ["Enabled", "説明"]。「Enabled'説明」は分割しない。
 			// 最大2分割の先頭を取り出し、末尾のVB6コメントを除いた値を返す。
 			return t.split("\\s+'", 2)[0];
 		}
@@ -1053,6 +1088,10 @@ public final class Vb6WinFormsConverter {
 			return null;
 		}
 		// OLE_COLORは最大32ビットなので、&Hに続く16進数を1～8桁として受け付ける。
+		// 「&H」+ 半角16進数字1～8桁 + 省略可能な末尾の「&」に一致する。
+		// 例: &H00FF00& → グループ1は00FF00、&H80000005 → 80000005。
+		// 16進数字は大小両方を許可するが、接頭辞は大文字Hのみ。「&HZZ&」は一致しない。
+		// 行頭・行末は固定せずfindで部分検索するため、色コード以外の前後文字は検査しない。
 		Matcher m = Pattern.compile("&H([0-9A-Fa-f]{1,8})&?").matcher(raw.trim());
 
 		// 対応する16進OLE_COLOR形式でない値は、生成コードに出力しない。
@@ -1279,6 +1318,12 @@ public final class Vb6WinFormsConverter {
 	private static String toPublicFieldDeclarations(String code) {
 		// 元VB6コードから抽出したPublicフィールドのVB.NET宣言文を蓄積する。
 		StringBuilder output = new StringBuilder();
+		// 複数行モードで、行頭Publicに続く「識別子 As 基本型」と行末の空白に一致する。
+		// 識別子の先頭は半角英字か_、以降は半角英数字か_。大文字小文字は区別しない。
+		// 基本型はBoolean・Integer・Long・String・Double・Singleだけを許可する。
+		// 例: 「Public customerName As String」→ グループ1はcustomerName、グループ2はString。
+		// 「Public total As Currency」や配列宣言「Public names() As String」は一致しない。
+		// 区切りの\sは改行も含むため、空白位置で改行された宣言にも一致し得る。
 		Matcher matcher = Pattern.compile("(?m)^Public\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+As\\s+(Boolean|Integer|Long|String|Double|Single)\\s*$", Pattern.CASE_INSENSITIVE).matcher(code);
 		// 単純なPublicフィールド宣言を順に抽出し、VB.NETの宣言文へ変換する。
 		while (matcher.find()) {
