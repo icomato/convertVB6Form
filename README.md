@@ -24,6 +24,33 @@
 
 出力する `bin/` と `output/` はGit管理の対象外です。Eclipseの自動ビルドでも `bin/` にクラスファイルが生成されます。EclipseにJRE System Libraryのエラーが出る場合は、**Window → Preferences → Java → Installed JREs** でJava 17 JDKを追加・選択してください。
 
+## Javaコーディング規約への対応
+
+本プロジェクトはフューチャー株式会社が公開する
+[Javaコーディング規約](https://future-architect.github.io/coding-standards/documents/forJava/Java%E3%82%B3%E3%83%BC%E3%83%87%E3%82%A3%E3%83%B3%E3%82%B0%E8%A6%8F%E7%B4%84.html)
+を参考に、次の方針で整理しています。
+
+- **1ファイル1クラス**を守り、内部・匿名クラスを使いません。
+- インデントは4スペース、ソースはUTF-8、制御文には省略せず波括弧を付けます。
+- フィールドはprivateにし、内部データの参照・更新はJavadoc付きのアクセサを通します。
+- メソッド・変数には用途の分かる名前を使用し、変換処理の名前は`to...`に揃えます。
+- クラスに`@author`・`@version`・`@since`、メソッドに`@param`・`@return`・必要な`@throws`を記載します。
+- Javaの標準APIのみを使用し、Java 17でビルド可能な構成を維持します。
+
+**互換性上の例外:** 既存の`java -cp bin Vb6WinFormsConverter ...`コマンドを変更しないよう、現時点ではデフォルトパッケージを保持します。将来パッケージを導入するときは、利用者の実行コマンドとの互換性を検討してください。
+
+Eclipseでは`Ctrl+Shift+F`で整形できます。プロジェクトの`.settings/org.eclipse.jdt.core.prefs`と`.editorconfig`に4スペース・UTF-8の設定を登録しています。
+
+### スモークテスト
+
+外部ライブラリを使わず、最小限のVB6フォームを生成して変換結果を確認できます。
+
+```bash
+bash tests/smoke_test.sh
+```
+
+このテストはJava 17コンパイル、Twips→Pixel換算、固定ラベルの自動サイズ調整、Designer.vbと監査レポートの生成を確認します。テスト対象フォームは一時ディレクトリに作成し、完了時に削除します。
+
 ## Javaソースの構成とJavadoc
 
 ソースコードは **1ファイル1クラス** で構成し、内部クラスは使用していません。Java 17の標準APIのみで動作し、Eclipseからもそのまま編集できます。
