@@ -138,7 +138,7 @@ public final class Vb6WinFormsConverter {
 	* VB6フォームを読み込んでVB.NET WinFormsのデザイナーと検証用資料を生成する。
 	* 使用方法: java -cp bin Vb6WinFormsConverter input.frm output_dir [dpi]。
 	* 既存のコードビハインドは上書きしない。
-	* 引数を省略すると、実行フォルダのsample内の単一.frmをoutputへ変換する。
+	* 引数を省略すると、実行フォルダのsample/input内の単一.frmをsample/outputへ変換する。
 	* @param args 入力.frm、出力ディレクトリ、省略可能なDPI（既定値96）。全省略も可能
 	* @throws IllegalArgumentException DPIが数値でないか、
 	* 48～768の有限値でない場合
@@ -274,12 +274,12 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* 明示引数を検査し、全省略の場合は実行フォルダ内のsampleから入力を選択する。
+	* 明示引数を検査し、全省略の場合は実行フォルダ内のsample/inputから入力を選択する。
 	* サブフォルダは探索せず、通常ファイルで拡張子が.frmのものを対象とする。
 	* @param args 利用者が指定したコマンドライン引数
 	* @return 入力.frm、出力先、省略可能なDPIを格納した引数配列
-	* @throws IOException sampleが存在しない場合、または読み取れない場合
-	* @throws IllegalArgumentException 引数の個数やsample内の候補件数が不適切な場合
+	* @throws IOException sample/inputが存在しない場合、または読み取れない場合
+	* @throws IllegalArgumentException 引数の個数やsample/input内の候補件数が不適切な場合
 	*/
 	private static String[] resolveArguments(String[] args) throws IOException {
 
@@ -293,11 +293,11 @@ public final class Vb6WinFormsConverter {
 			// 個数が正しい明示引数は、内容を変更せず呼び出し元へ返す。
 			return args;
 		}
-		Path sample = Path.of("sample");
+		Path sample = Path.of("sample", "input");
 
-		// 相対パスsampleがディレクトリでない場合は、既定の入力を選択できない。
+		// 相対パスsample/inputがディレクトリでない場合は、既定の入力を選択できない。
 		if (!Files.isDirectory(sample)) {
-			throw new IOException("実行フォルダにsampleディレクトリがありません: " + sample.toAbsolutePath().normalize());
+			throw new IOException("実行フォルダにsample/inputディレクトリがありません: " + sample.toAbsolutePath().normalize());
 		}
 		List<Path> candidates;
 		try (Stream<Path> entries = Files.list(sample)) {
@@ -309,15 +309,15 @@ public final class Vb6WinFormsConverter {
 
 		// 入力候補がない場合は、元のVB6フォームを配置する方法を案内する。
 		if (candidates.isEmpty()) {
-			throw new IllegalArgumentException("sampleディレクトリに対象の.frmファイルがありません。");
+			throw new IllegalArgumentException("sample/inputディレクトリに対象の.frmファイルがありません。");
 		}
 
 		// 複数ある入力から勝手に選ばず、利用者に対象ファイルの明示指定を求める。
 		if (candidates.size() > 1) {
-			throw new IllegalArgumentException("sampleディレクトリに.frmファイルが複数あります。入力ファイルを引数で指定してください。");
+			throw new IllegalArgumentException("sample/inputディレクトリに.frmファイルが複数あります。入力ファイルを引数で指定してください。");
 		}
-		// 唯一の.frmを入力にし、実行フォルダからの相対パスoutputを出力先として返す。
-		return new String[] {candidates.get(0).toString(), "output"};
+		// 唯一の.frmを入力にし、実行フォルダからの相対パスsample/outputを出力先として返す。
+		return new String[] {candidates.get(0).toString(), Path.of("sample", "output").toString()};
 	}
 
 	/**
@@ -326,9 +326,9 @@ public final class Vb6WinFormsConverter {
 	*/
 	private static void printHowTo(String reason) {
 		System.err.println("HowTo ERROR: " + reason);
-		System.err.println("引数なし: 実行フォルダのsample直下に.frmを1件配置してください（出力先: output）。");
+		System.err.println("引数なし: 実行フォルダのsample/input直下に.frmを1件配置してください（出力先: sample/output）。");
 		System.err.println("明示指定: java -cp bin Vb6WinFormsConverter <input.frm> <output-dir> [dpi: default 96]");
-		System.err.println("例: java -cp bin Vb6WinFormsConverter sample/ReportWindow.frm output");
+		System.err.println("例: java -cp bin Vb6WinFormsConverter sample/input/ReportWindow.frm sample/output");
 	}
 
 	/**

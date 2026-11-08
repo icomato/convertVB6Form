@@ -219,15 +219,15 @@ javadoc -private -classpath lib/lombok-1.18.48.jar -Xdoclint:all,-missing -encod
 
 ## Javaで変換する
 
-引数を省略すると、**実行時の作業フォルダ**を基準に`sample/`直下の`.frm`ファイルを探し、`output/`へ変換します。
+引数を省略すると、**実行時の作業フォルダ**を基準に`sample/input/`直下の`.frm`ファイルを探し、`sample/output/`へ変換します。
 拡張子は大文字小文字を区別せず、サブフォルダは探索しません。EclipseではRun Configurationsの**Working directory**をプロジェクトフォルダに設定してください。
 
 ```bash
 java -cp bin Vb6WinFormsConverter
 ```
 
-`sample/`がない場合、対象の`.frm`がない場合、または候補が複数ある場合は、理由と**HowTo**を標準エラーへ表示し、終了コード2で終了します。
-引数なしで使うには、手元のVB6フォームを`sample/`直下に1件配置してください。公開リポジトリの`sample/`には生成済みVB.NETのサンプルだけがあり、元の`.frm`は含みません。
+`sample/input/`がない場合、対象の`.frm`がない場合、または候補が複数ある場合は、理由と**HowTo**を標準エラーへ表示し、終了コード2で終了します。
+引数なしで使うには、手元のVB6フォームを`sample/input/`直下に1件配置してください。公開リポジトリの`sample/output/`には生成済みVB.NETのサンプルがあり、`sample/input/`に元の`.frm`は含みません。
 複数のフォームがある場合や出力先・DPIを変える場合は、従来どおり入力・出力・任意のDPIを引数で指定します。
 
 Java 21 以上の実行環境で、src配下の全Javaファイルをコンパイルして実行します（ビルド成果物はリポジトリには含めません）。
@@ -273,7 +273,7 @@ WindowsでVisual Studio 2022 17.14以降の「.NET デスクトップ開発」�
 コマンドラインで`.slnx`を扱う場合は.NET SDK 9.0.200以降を使用します。生成プロジェクトのターゲットは引き続き`net8.0-windows`です。
 生成した`.slnx`と添付サンプルは.NET SDK 10.0.403の`dotnet sln <ファイル名.slnx> list`で読み込み・プロジェクト参照を確認しています。
 
-1. 生成した`ReportWindow_Migrated.slnx`（添付例は`sample/ReportWindow_Migrated.slnx`）を**File → Open → Project/Solution**で開きます。`.vbproj`を直接開くこともできます。
+1. 生成した`ReportWindow_Migrated.slnx`（添付例は`sample/output/ReportWindow_Migrated.slnx`）を**File → Open → Project/Solution**で開きます。`.vbproj`を直接開くこともできます。
 2. `ReportWindow.vb` をフォームとして開き、デザイナー画面と5タブの配置を確認します。
 3. `ReportWindow_migration_report.txt` の警告を検討し、必要な画像・COM相当機能・イベント処理を移植します。
 4. `dotnet build` でビルドします（本資料作成環境ではVB.NETの実コンパイルまでは確認していません）。
@@ -319,6 +319,7 @@ Windows Forms の `WebBrowser` は旧式のブラウザコンポーネントな�
 - `src/entity/Vb6FormNodeEntity.java`：VB6コントロールと座標・親子関係の保持
 - `src/entity/Vb6TabInfoEntity.java`：SSTabのタブ所属とTabPageの管理
 - `src/entity/Vb6ConversionStateEntity.java`：フォーム単位の変換情報・警告と件数の管理
-- `sample/`: 添付されたダミーフォームから生成した .NET 8 WinForms のサンプルとレポート
+- `sample/input/`: 変換したいVB6の`.frm`・必要に応じて`.frx`を配置する入力フォルダ
+- `sample/output/`: 添付されたダミーフォームから生成した .NET 8 WinForms のサンプルとレポート。引数なし実行時の出力先
 - 元の `.frm` や `.frx` は公開リポジトリに含めません。各自のローカルファイルを指定してください。
 - 生成した `Designer.vb` は Windows 上でのビルド・デザイナー表示を確認してから本番利用してください。

@@ -60,7 +60,7 @@ grep -Fq 'Me.Label1.Text = "Hello"' \
 test -s "$work_dir/output/Basic_coordinate_audit.csv"
 test -s "$work_dir/output/Basic_migration_report.txt"
 
-# 実行フォルダ基準の相対パスでsampleを探し、HowToと終了コードを確認する。
+# 実行フォルダ基準の相対パスでsample/inputを探し、HowToと終了コードを確認する。
 classes_dir="$(pwd)/bin"
 mkdir -p "$work_dir/default-run"
 run_default() {
@@ -86,16 +86,19 @@ expect_howto() {
     fi
 }
 expect_howto
-test ! -e "$work_dir/default-run/output"
-mkdir -p "$work_dir/default-run/sample/ignored.frm"
-printf 'not a form\n' > "$work_dir/default-run/sample/readme.txt"
+test ! -e "$work_dir/default-run/sample/output"
+mkdir -p "$work_dir/default-run/sample/input/ignored.frm"
+printf 'not a form\n' > "$work_dir/default-run/sample/input/readme.txt"
+# 旧配置のsample直下の.frmは、入力候補として選択しない。
+cp "$work_dir/Basic.frm" "$work_dir/default-run/sample/Legacy.frm"
 expect_howto
-test ! -e "$work_dir/default-run/output"
-cp "$work_dir/Basic.frm" "$work_dir/default-run/sample/Basic.FRM"
+test ! -e "$work_dir/default-run/sample/output"
+cp "$work_dir/Basic.frm" "$work_dir/default-run/sample/input/Basic.FRM"
 run_default
 test ! -s "$work_dir/default-stderr.txt"
-test -s "$work_dir/default-run/output/Basic_Migrated.slnx"
-cp "$work_dir/Basic.frm" "$work_dir/default-run/sample/Other.frm"
+test -s "$work_dir/default-run/sample/output/Basic_Migrated.slnx"
+test ! -e "$work_dir/default-run/output"
+cp "$work_dir/Basic.frm" "$work_dir/default-run/sample/input/Other.frm"
 expect_howto
 expect_howto only-one-argument
 
