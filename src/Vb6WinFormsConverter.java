@@ -65,16 +65,19 @@ public final class Vb6WinFormsConverter {
 	* @throws IOException .frmの読み込み、解析、または出力ファイル作成に失敗した場合
 	*/
 	public static void main(String[] args) throws IOException {
+
 		if (args.length < 2 || args.length > 3) {
 			System.err.println("使い方: java -jar Vb6WinFormsConverter.jar <input.frm> <output-dir> [dpi: default 96]");
 			System.exit(2);
 		}
 		Path source = Path.of(args[0]).toAbsolutePath().normalize();
 		Path out = Path.of(args[1]).toAbsolutePath().normalize();
+
 		if (!Files.isRegularFile(source)) {
 			throw new IOException("入力ファイルがありません: " + source);
 		}
 		double dpi = args.length == 3 ? Double.parseDouble(args[2]) : 96.0;
+
 		if (!(dpi >= 48.0 && dpi <= 768.0) || !Double.isFinite(dpi)) {
 			throw new IllegalArgumentException("DPIは48～768を指定してください");
 		}
@@ -92,6 +95,7 @@ public final class Vb6WinFormsConverter {
 		Path report = out.resolve(st.getClassName() + "_migration_report.txt");
 		Files.writeString(designer, toDesignerSource(st), StandardCharsets.UTF_8);
 		// 手書きの処理を誤って消さないよう、コードビハインドは既存なら上書きしない。
+
 		if (!Files.exists(codeBehind)) {
 			Files.writeString(codeBehind,
 			"' VB6から移植したイベント処理・ビジネスロジックは未移行です。\r\n" +
@@ -106,6 +110,7 @@ public final class Vb6WinFormsConverter {
 			st.addWarning("既存のコードビハインドは保護しました: " + codeBehind.getFileName());
 		}
 		// Program.vbと.vbprojも既存ファイルを保護する。
+
 		if (!Files.exists(program)) {
 			Files.writeString(program,
 			"Imports System.Windows.Forms\r\n" +
@@ -118,6 +123,7 @@ public final class Vb6WinFormsConverter {
 			"    End Sub\r\n" +
 			"End Module\r\n", StandardCharsets.UTF_8);
 		}
+
 		if (!Files.exists(project)) {
 			Files.writeString(project,
 			"<Project Sdk=\"Microsoft.NET.Sdk\">\r\n" +
@@ -167,20 +173,25 @@ public final class Vb6WinFormsConverter {
 		// Beginでpush、EndでpopすることでVB6のネスト構造を復元する。
 		Deque<Vb6FormNode> stack = new ArrayDeque<>();
 		int codeStart = lines.length;
+
 		for (int i = 0; i < lines.length; i++) {
 			String line = lines[i].trim();
 			// ここから先はVB6イベント処理などのコード部なので、レイアウト解析を終了する。
+
 			if (line.startsWith("Attribute VB_Name")) {
 				codeStart = i;
 				break;
 			}
 			Matcher begin = BEGIN.matcher(line);
 			Matcher nested = BEGIN_PROPERTY.matcher(line);
+
 			if (begin.matches()) {
 				Vb6FormNode parent = stack.peek();
 				Vb6FormNode node = new Vb6FormNode("control", begin.group(1), begin.group(2), parent);
+
 				if (parent != null) {
 					parent.getChildren().add(node);
+
 				} else if (s.getForm() == null) {
 					s.setForm(node);
 				} else {
@@ -189,36 +200,46 @@ public final class Vb6WinFormsConverter {
 				stack.push(node);
 				s.getAll().add(node);
 				// BeginProperty Fontなどは別コントロールではなく親コントロールの属性。
+
 			} else if (nested.matches()) {
 				Vb6FormNode parent = stack.peek();
+
 				if (parent == null) {
 					throw new IOException("BeginPropertyの親がありません (行 " + (i + 1) + ")");
 				}
 				Vb6FormNode node = new Vb6FormNode("property", "", nested.group(1), parent);
 				parent.getNested().put(node.getName(), node);
 				stack.push(node);
+
 			} else if (line.equals("End") || line.equals("EndProperty")) {
+
 				if (stack.isEmpty()) {
 					throw new IOException("Endの数が不正です (行 " + (i + 1) + ")");
 				}
 				Vb6FormNode popped = stack.pop();
+
 				if (line.equals("End") && !popped.getKind().equals("control") ||
 				line.equals("EndProperty") && !popped.getKind().equals("property")) {
 					throw new IOException("Begin/Endの対応が不正です (行 " + (i + 1) + ")");
 				}
+
 			} else if (!stack.isEmpty()) {
 				Matcher prop = PROPERTY.matcher(line);
+
 				if (prop.matches()) {
 					stack.peek().getProps().put(prop.group(1).trim(), prop.group(2).trim());
 				}
 			}
 		}
+
 		if (!stack.isEmpty()) {
 			throw new IOException("BeginとEndが対応していません: " + stack.peek().getName());
 		}
+
 		if (s.getForm() == null || !"VB.Form".equals(s.getForm().getVbType())) {
 			throw new IOException("VB.Formが見つかりません");
 		}
+
 		if (codeStart < lines.length) {
 			s.setVb6Code(String.join("\n", Arrays.copyOfRange(lines, codeStart, lines.length)));
 		}
@@ -235,21 +256,26 @@ public final class Vb6WinFormsConverter {
 		Matcher classMatch = Pattern.compile("(?m)^Attribute VB_Name\\s*=\\s*\"([^\"]+)\"")
 		.matcher(s.getVb6Code());
 		s.setClassName(toSafeIdentifier(classMatch.find() ? classMatch.group(1) : s.getForm().getName()));
+
 		if (s.getForm().hasProperty("ScaleMode") && parseInteger(s.getForm().getProperty("ScaleMode"), 1) != 1) {
 			s.addWarning("Form.ScaleMode がTwips以外です。座標は96DPIのTwipsとして暫定変換します");
 		}
+
 		for (Vb6FormNode n : s.getAll()) {
 			n.setId(n.getName() + (n.hasProperty("Index") ? "(" + parseInteger(n.getProperty("Index"), 0) + ")" : ""));
 			n.setField(toUniqueFieldName(s, toSafeIdentifier(n.getName() + (n.hasProperty("Index")
 			? "_" + parseInteger(n.getProperty("Index"), 0) : ""))));
 			n.setWinType(toWinFormsControlType(n.getVbType()));
+
 			if (n.getWinType() == null) {
 				n.setSupported(false);
 				s.incrementIgnoredCount();
 				s.addWarning(n.getId() + " (" + n.getVbType() + ") はWinForms相当コントロールがなく省略しました");
+
 			} else if (n != s.getForm()) {
 				s.incrementVisualCount();
 			}
+
 			if (n.hasProperty("Index")) {
 				s.addWarning(n.getId() + " はVB6のコントロール配列です。WinFormsでは " + n.getField() + " へ個別変換しました。配列イベント処理の移植は別途必要です");
 			}
@@ -261,10 +287,12 @@ public final class Vb6WinFormsConverter {
 			n.setPixelTop(toPixels(n.getTopTwips(), s.getDpi()));
 			n.setPixelWidth(toPixels(n.getWidthTwips(), s.getDpi()));
 			n.setPixelHeight(toPixels(n.getHeightTwips(), s.getDpi()));
+
 			if (n.getId() != null && s.getById().put(n.getId(), n) != null) {
 				s.addWarning("VB6コントロール識別子が重複しています: " + n.getId());
 			}
 			// SSTabは後で子要素を適切なTabPageへ移すため、タブ数と見出し高を保持する。
+
 			if ("TabDlg.SSTab".equals(n.getVbType())) {
 				Vb6TabInfo t = new Vb6TabInfo();
 				t.setTab(n);
@@ -272,25 +300,32 @@ public final class Vb6WinFormsConverter {
 				t.setTabHeightTwips(parseInteger(n.getProperty("TabHeight"), 520));
 				s.getTabs().put(n, t);
 			}
+
 			if (n.hasProperty("Picture")) {
 				s.addWarning(n.getId() + " のPictureは .frx 参照の可能性があります。画像リソースは未移行です");
 			}
+
 			if (n.hasProperty("ItemData") || n.hasProperty("List")) {
 				s.addWarning(n.getId() + " のリスト初期値はFRXを参照する場合があります。実データは未移行です");
 			}
+
 			if (n.hasProperty("ScaleMode") && parseInteger(n.getProperty("ScaleMode"), 1) != 1) {
 				s.addWarning(n.getId() + " のScaleModeはTwipsではありません。子コントロール座標の手動検証が必要です");
 			}
 		}
+
 		for (Vb6TabInfo ti : s.getTabs().values()) {
+
 			for (Map.Entry<String, String> e : ti.getTab().getProps().entrySet()) {
 				Matcher match = TAB_CONTROL.matcher(e.getKey());
+
 				if (match.matches()) {
 					int tabIdx = Integer.parseInt(match.group(1));
 					String original = parseVbString(e.getValue());
 					ti.getAssignments().put(original, tabIdx);
 				}
 			}
+
 			for (int i = 0; i < ti.getCount(); i++) {
 				Vb6FormNode page = new Vb6FormNode("generated", "WinForms.TabPage", ti.getTab().getName() + "_TabPage" + i, ti.getTab());
 				page.setField(toUniqueFieldName(s, toSafeIdentifier(page.getName())));
@@ -299,31 +334,39 @@ public final class Vb6WinFormsConverter {
 				page.setId(page.getName());
 				ti.getPages().add(page);
 			}
+
 			if (ti.getTab().hasProperty("TabPicture(0)")) {
 				s.addWarning(ti.getTab().getId() + " のTabPictureは移行しません（.frx画像未添付）");
 			}
 		}
 		// SSTab直下のコントロールは親をTabPageへ変更してから座標を補正する。
 		// Frame等の内側では元の親子関係と相対座標を維持する。
+
 		for (Vb6FormNode n : s.getAll()) {
+
 			if (n.getParent() != null && s.getTabs().containsKey(n.getParent())) {
 				Vb6TabInfo ti = s.getTabs().get(n.getParent());
 				Integer tab = ti.getAssignments().get(n.getId());
 				boolean inferred = false;
 				// 明示されたタブ所属がない場合、同名コントロール配列から推定する。
 				// それでも不明なら符号から暫定配置して警告に記録する。
+
 				if (tab == null) {
 					// Array siblings can establish otherwise missing tab membership.
 					Set<Integer> siblings = new LinkedHashSet<>();
+
 					for (Vb6FormNode other : n.getParent().getChildren()) {
+
 						if (other == n || !other.getName().equals(n.getName())) {
 							continue;
 						}
 						Integer assigned = ti.getAssignments().get(other.getId());
+
 						if (assigned != null) {
 							siblings.add(assigned);
 						}
 					}
+
 					if (siblings.size() == 1) {
 						tab = siblings.iterator().next();
 					} else {
@@ -331,11 +374,13 @@ public final class Vb6WinFormsConverter {
 					}
 					inferred = true;
 				}
+
 				if (tab < 0 || tab >= ti.getCount()) {
 					s.addWarning(n.getId() + " のタブ番号が不正です: " + tab + "。Tab0に置き換えます");
 					tab = 0;
 				}
 				n.setTabIndex(tab);
+
 				if (inferred) {
 					s.incrementUnknownTabCount();
 					s.addWarning(n.getId() + " はTab(n).Control一覧にありません。タブ" + tab + " に推定配置しました（要確認）");
@@ -344,6 +389,7 @@ public final class Vb6WinFormsConverter {
 				// 通常の小さな負座標は意図的な位置として扱い、補正しない。
 				long correctedLeft = n.getLeftTwips() < -10000
 				? (long) n.getLeftTwips() + SSTAB_HIDE_TWIPS : n.getLeftTwips();
+
 				if (correctedLeft != n.getLeftTwips()) {
 					s.incrementRemappedTabCount();
 				}
@@ -352,11 +398,13 @@ public final class Vb6WinFormsConverter {
 				// TabHeightを引いてY座標を揃える。
 				long correctedTop = (long) n.getTopTwips() - ti.getTabHeightTwips();
 				// Some VB6 controls begin slightly above the tab header baseline.
+
 				if (correctedTop < 0 && correctedTop > -200) {
 					correctedTop = 0;
 				}
 				n.setPixelTop(toPixels(correctedTop, s.getDpi()));
 				n.setResolvedParent(ti.getPages().get(tab).getField());
+
 			} else if (n.getParent() != null) {
 				n.setResolvedParent(n.getParent().getField());
 			}
@@ -383,14 +431,17 @@ public final class Vb6WinFormsConverter {
 	*/
 	private static String toSafeIdentifier(String name) {
 		String result = name.replaceAll("[^\\p{L}\\p{N}_]", "_");
+
 		if (result.isEmpty()) {
 			result = "Unnamed";
 		}
+
 		if (Character.isDigit(result.charAt(0))) {
 			result = "ctl_" + result;
 		}
 		// Avoid collision with VB.NET keywords while preserving original-ish designer names.
 		Set<String> keywords = Set.of("Class", "End", "New", "If", "Then", "Else", "Module", "Sub", "Me", "Public", "Private", "Friend", "Partial", "Namespace", "Property", "Integer", "String");
+
 		if (keywords.contains(result)) {
 			result = "ctl_" + result;
 		}
@@ -431,6 +482,7 @@ public final class Vb6WinFormsConverter {
 	* @return 数値化した属性値
 	*/
 	private static int parseInteger(String value, int fallback) {
+
 		if (value == null) {
 			return fallback;
 		}
@@ -455,17 +507,22 @@ public final class Vb6WinFormsConverter {
 	* @return デコードした文字列。nullの場合は空文字列
 	*/
 	private static String parseVbString(String vbValue) {
+
 		if (vbValue == null) {
 			return "";
 		}
 		String t = vbValue.trim();
+
 		if (!t.startsWith("\"")) {
 			return t.split("\\s+'", 2)[0];
 		}
 		StringBuilder b = new StringBuilder();
+
 		for (int i = 1; i < t.length(); i++) {
 			char c = t.charAt(i);
+
 			if (c == '"') {
+
 				if (i + 1 < t.length() && t.charAt(i + 1) == '"') {
 					b.append('"');
 					i++;
@@ -553,36 +610,46 @@ public final class Vb6WinFormsConverter {
 	* @param s 変換状態
 	*/
 	private static void appendControlProperties(StringBuilder out, Vb6FormNode n, Vb6ConversionState s) {
+
 		if (!n.isSupported() || n == s.getForm()) {
 			return;
 		}
+
 		if (isNonVisual(n)) {
 			return;
 		}
 		appendPropertyAssignment(out, n, "Name", toVbStringLiteral(n.getField()));
 		appendPropertyAssignment(out, n, "Location", "New System.Drawing.Point(" + n.getPixelLeft() + ", " + n.getPixelTop() + ")");
+
 		if (n.hasProperty("Width") || n.hasProperty("Height")) {
 			appendPropertyAssignment(out, n, "Size", "New System.Drawing.Size(" + Math.max(1, n.getPixelWidth()) + ", " + Math.max(1, n.getPixelHeight()) + ")");
 		}
+
 		if (n.hasProperty("Caption")) {
 			appendPropertyAssignment(out, n, "Text", toVbStringLiteral(parseVbString(n.getProperty("Caption"))));
 		}
+
 		if (n.hasProperty("Text") && !n.getVbType().equals("VB.TextBox")) {
 			appendPropertyAssignment(out, n, "Text", toVbStringLiteral(parseVbString(n.getProperty("Text"))));
 		}
+
 		if (n.hasProperty("Visible")) {
 			appendPropertyAssignment(out, n, "Visible", toVbBooleanLiteral(isVbTrue(n.getProperty("Visible"))));
 		}
+
 		if (n.hasProperty("Enabled")) {
 			appendPropertyAssignment(out, n, "Enabled", toVbBooleanLiteral(isVbTrue(n.getProperty("Enabled"))));
 		}
+
 		if (n.hasProperty("TabIndex")) {
 			appendPropertyAssignment(out, n, "TabIndex", Integer.toString(parseInteger(n.getProperty("TabIndex"), 0)));
 		}
 		// フォント名・ポイント数・太字などはBeginProperty Fontから復元する。
 		Vb6FormNode font = n.getNested().get("Font");
+
 		if (font != null) {
 			String fontName = parseVbString(font.getProperty("Name"));
+
 			if (fontName.isEmpty()) {
 				fontName = "MS UI Gothic";
 			}
@@ -593,15 +660,19 @@ public final class Vb6WinFormsConverter {
 				fontSize = "9";
 			}
 			List<String> styles = new ArrayList<>();
+
 			if (parseInteger(font.getProperty("Weight"), 400) >= 700) {
 				styles.add("System.Drawing.FontStyle.Bold");
 			}
+
 			if (isVbTrue(font.getProperty("Italic"))) {
 				styles.add("System.Drawing.FontStyle.Italic");
 			}
+
 			if (isVbTrue(font.getProperty("Underline"))) {
 				styles.add("System.Drawing.FontStyle.Underline");
 			}
+
 			if (isVbTrue(font.getProperty("Strikethrough"))) {
 				styles.add("System.Drawing.FontStyle.Strikeout");
 			}
@@ -610,14 +681,18 @@ public final class Vb6WinFormsConverter {
 			appendPropertyAssignment(out, n, "Font", "New System.Drawing.Font(" + toVbStringLiteral(fontName) + ", CSng(" + fontSize
 			+ "), " + style + ", System.Drawing.GraphicsUnit.Point, CByte(" + Math.max(0, Math.min(255, charset)) + "))");
 		}
+
 		if (n.hasProperty("BackColor")) {
 			String color = toColor(n.getProperty("BackColor"));
+
 			if (color != null) {
 				appendPropertyAssignment(out, n, "BackColor", color);
 			}
 		}
+
 		if (n.hasProperty("ForeColor")) {
 			String color = toColor(n.getProperty("ForeColor"));
+
 			if (color != null) {
 				appendPropertyAssignment(out, n, "ForeColor", color);
 			}
@@ -632,6 +707,7 @@ public final class Vb6WinFormsConverter {
 				? isVbTrue(n.getProperty("AutoSize"))
 				: !parseVbString(n.getProperty("Caption")).isBlank() && !isVbTrue(n.getProperty("WordWrap"));
 				appendPropertyAssignment(out, n, "AutoSize", toVbBooleanLiteral(autoSize));
+
 				if (n.hasProperty("Alignment")) {
 					appendPropertyAssignment(out, n, "TextAlign", switch (parseInteger(n.getProperty("Alignment"), 0)) {
 						case 1 -> "System.Drawing.ContentAlignment.MiddleRight";
@@ -641,18 +717,23 @@ public final class Vb6WinFormsConverter {
 				}
 			}
 			case "VB.TextBox" -> {
+
 				if (n.hasProperty("Text")) {
 					appendPropertyAssignment(out, n, "Text", toVbStringLiteral(parseVbString(n.getProperty("Text"))));
 				}
+
 				if (n.hasProperty("Locked")) {
 					appendPropertyAssignment(out, n, "ReadOnly", toVbBooleanLiteral(isVbTrue(n.getProperty("Locked"))));
 				}
+
 				if (n.hasProperty("MaxLength")) {
 					appendPropertyAssignment(out, n, "MaxLength", Integer.toString(parseInteger(n.getProperty("MaxLength"), 32767)));
 				}
+
 				if (n.hasProperty("MultiLine")) {
 					appendPropertyAssignment(out, n, "Multiline", toVbBooleanLiteral(isVbTrue(n.getProperty("MultiLine"))));
 				}
+
 				if (n.hasProperty("ScrollBars")) {
 					String bars = switch (parseInteger(n.getProperty("ScrollBars"), 0)) {
 						case 1 -> "Vertical";
@@ -664,11 +745,13 @@ public final class Vb6WinFormsConverter {
 				}
 			}
 			case "VB.CheckBox", "VB.OptionButton" -> {
+
 				if (n.hasProperty("Value")) {
 					appendPropertyAssignment(out, n, "Checked", toVbBooleanLiteral(isVbTrue(n.getProperty("Value"))));
 				}
 			}
 			case "VB.ComboBox" -> {
+
 				if (n.hasProperty("Style")) {
 					String style = switch (parseInteger(n.getProperty("Style"), 0)) {
 						case 1 -> "Simple";
@@ -683,6 +766,7 @@ public final class Vb6WinFormsConverter {
 				appendPropertyAssignment(out, n, "SizeMode", "System.Windows.Forms.PictureBoxSizeMode." + mode);
 			}
 			case "VB.ListBox" -> {
+
 				if (n.hasProperty("MultiSelect")) {
 					String mode = switch (parseInteger(n.getProperty("MultiSelect"), 0)) {
 						case 1 -> "MultiSimple";
@@ -693,6 +777,7 @@ public final class Vb6WinFormsConverter {
 				}
 			}
 			case "VB.PictureBox" -> {
+
 				if (n.hasProperty("BorderStyle")) {
 					appendPropertyAssignment(out, n, "BorderStyle",
 					"System.Windows.Forms.BorderStyle." + (parseInteger(n.getProperty("BorderStyle"), 0) == 0 ? "None" : "FixedSingle"));
@@ -719,14 +804,17 @@ public final class Vb6WinFormsConverter {
 	* @return WinForms色の式。変換できなければnull
 	*/
 	private static String toColor(String raw) {
+
 		if (raw == null) {
 			return null;
 		}
 		Matcher m = Pattern.compile("&H([0-9A-Fa-f]{1,8})&?").matcher(raw.trim());
+
 		if (!m.find()) {
 			return null;
 		}
 		long value = Long.parseUnsignedLong(m.group(1), 16);
+
 		if ((value & 0xFF000000L) == 0x80000000L) {
 			return switch ((int) (value & 0xFF)) {
 				case 5 -> "System.Drawing.SystemColors.Window";
@@ -768,8 +856,11 @@ public final class Vb6WinFormsConverter {
 		appendLine(out, "    Private Sub InitializeComponent()");
 		appendLine(out, "        Me.components = New System.ComponentModel.Container()");
 		// 先にコントロールの実体をすべて作り、Controls.Addが参照できるようにする。
+
 		for (Vb6FormNode n : s.getAll()) {
+
 			if (n != s.getForm() && n.isSupported()) {
+
 				if (n.getWinType().endsWith(".ImageList")) {
 					appendLine(out, "        Me." + n.getField() + " = New " + n.getWinType() + "(Me.components)");
 				} else {
@@ -777,19 +868,25 @@ public final class Vb6WinFormsConverter {
 				}
 			}
 		}
+
 		for (Vb6TabInfo t : s.getTabs().values()) {
+
 			for (Vb6FormNode p : t.getPages()) {
 				appendLine(out, "        Me." + p.getField() + " = New System.Windows.Forms.TabPage()");
 			}
 		}
 		appendLine(out, "        Me.SuspendLayout()");
 		// 次に位置・サイズ・表示文字などの基本属性を設定する。
+
 		for (Vb6FormNode n : s.getAll()) {
+
 			if (n.isSupported() && n != s.getForm()) {
 				appendControlProperties(out, n, s);
 			}
 		}
+
 		for (Vb6TabInfo ti : s.getTabs().values()) {
+
 			for (Vb6FormNode page : ti.getPages()) {
 				int i = page.getTabIndex();
 				appendPropertyAssignment(out, page, "Name", toVbStringLiteral(page.getField()));
@@ -801,18 +898,24 @@ public final class Vb6WinFormsConverter {
 			appendPropertyAssignment(out, ti.getTab(), "ItemSize", "New System.Drawing.Size(" + toPixels(1800, s.getDpi()) + ", " + Math.max(1, toPixels(ti.getTabHeightTwips(), s.getDpi())) + ")");
 		}
 		// ネストしたFrame等への追加と、SSTab直下のTabPageへの追加を行う。
+
 		for (Vb6FormNode n : s.getAll()) {
+
 			if (n == s.getForm() || n.getParent() == s.getForm() || !n.isSupported() || isNonVisual(n)) {
 				continue;
 			}
+
 			if (s.getTabs().containsKey(n.getParent())) {
 				// Tab pages may be omitted if a tab control is skipped in the future.
 				appendLine(out, "        Me." + n.getResolvedParent() + ".Controls.Add(Me." + n.getField() + ")");
+
 			} else if (n.getParent() != null && n.getParent().isSupported()) {
 				appendLine(out, "        Me." + n.getParent().getField() + ".Controls.Add(Me." + n.getField() + ")");
 			}
 		}
+
 		for (Vb6TabInfo ti : s.getTabs().values()) {
+
 			for (Vb6FormNode page : ti.getPages()) {
 				appendLine(out, "        Me." + ti.getTab().getField() + ".TabPages.Add(Me." + page.getField() + ")");
 			}
@@ -823,6 +926,7 @@ public final class Vb6WinFormsConverter {
 		appendPropertyAssignment(out, s.getForm(), "ClientSize", "New System.Drawing.Size(" + toPixels(parseInteger(s.getForm().getProperty("ClientWidth"), 0), s.getDpi()) + ", "
 		+ toPixels(parseInteger(s.getForm().getProperty("ClientHeight"), 0), s.getDpi()) + ")");
 		appendPropertyAssignment(out, s.getForm(), "Text", toVbStringLiteral(parseVbString(s.getForm().getProperty("Caption"))));
+
 		if (s.getForm().hasProperty("BorderStyle")) {
 			String border = switch (parseInteger(s.getForm().getProperty("BorderStyle"), 2)) {
 				case 0 -> "None";
@@ -834,12 +938,15 @@ public final class Vb6WinFormsConverter {
 			};
 			appendPropertyAssignment(out, s.getForm(), "FormBorderStyle", "System.Windows.Forms.FormBorderStyle." + border);
 		}
+
 		if (s.getForm().hasProperty("MaxButton")) {
 			appendPropertyAssignment(out, s.getForm(), "MaximizeBox", toVbBooleanLiteral(isVbTrue(s.getForm().getProperty("MaxButton"))));
 		}
+
 		if (s.getForm().hasProperty("MinButton")) {
 			appendPropertyAssignment(out, s.getForm(), "MinimizeBox", toVbBooleanLiteral(isVbTrue(s.getForm().getProperty("MinButton"))));
 		}
+
 		if (s.getForm().hasProperty("StartUpPosition")) {
 			String start = switch (parseInteger(s.getForm().getProperty("StartUpPosition"), 0)) {
 				case 1 -> "CenterParent";
@@ -850,7 +957,9 @@ public final class Vb6WinFormsConverter {
 			};
 			appendPropertyAssignment(out, s.getForm(), "StartPosition", "System.Windows.Forms.FormStartPosition." + start);
 		}
+
 		for (Vb6FormNode child : s.getForm().getChildren()) {
+
 			if (child.isSupported() && !isNonVisual(child)) {
 				appendLine(out, "        Me.Controls.Add(Me." + child.getField() + ")");
 			}
@@ -858,12 +967,16 @@ public final class Vb6WinFormsConverter {
 		appendLine(out, "        Me.ResumeLayout(False)");
 		appendLine(out, "    End Sub");
 		appendLine(out, "");
+
 		for (Vb6FormNode n : s.getAll()) {
+
 			if (n != s.getForm() && n.isSupported()) {
 				appendLine(out, "    Friend WithEvents " + n.getField() + " As " + n.getWinType());
 			}
 		}
+
 		for (Vb6TabInfo t : s.getTabs().values()) {
+
 			for (Vb6FormNode p : t.getPages()) {
 				appendLine(out, "    Friend WithEvents " + p.getField() + " As " + p.getWinType());
 			}
@@ -900,6 +1013,7 @@ public final class Vb6WinFormsConverter {
 	private static String toCoordinateAuditCsv(Vb6ConversionState s) {
 		StringBuilder b = new StringBuilder();
 		appendLine(b, "VB6Type,VB6Name,WinFormsType,WinFormsField,VB6Parent,WinFormsParent,TabIndex,LeftTwips,TopTwips,WidthTwips,HeightTwips,PixelX,PixelY,PixelWidth,PixelHeight,Output");
+
 		for (Vb6FormNode n : s.getAll()) {
 			String parent = n.getParent() == null ? "" : n.getParent().getId();
 			String resolved = n.getResolvedParent().isEmpty() ? (n.getParent() == null ? "" : n.getParent().getField()) : n.getResolvedParent();
@@ -940,9 +1054,11 @@ public final class Vb6WinFormsConverter {
 		appendLine(b, "注意: VB.NETの.Windows.Forms.Formの自動生成レイアウトとしてVisual Studioで開けますが、未サポート要素は警告を確認してください。");
 		appendLine(b, "");
 		appendLine(b, "=== 警告 ===");
+
 		if (s.getWarnings().isEmpty()) {
 			appendLine(b, "なし");
 		}
+
 		for (String warn : s.getWarnings()) {
 			appendLine(b, warn);
 		}

@@ -66,4 +66,40 @@ for fixture in Spaces Mixed; do
     lint -o "$work_dir/$fixture.xml" "$work_dir/$fixture.java"
     grep -q '\.RegexpSinglelineCheck' "$work_dir/$fixture.xml"
 done
+# if・通常for・拡張for・else if・ネストと、コメント直後の空行を確認する。
+cat > "$work_dir/BlankLines.java" <<'JAVA'
+class BlankLines {
+    void run() {
+
+        if (true) {
+
+            for (int i = 0; i < 1; i++) {
+                // 確認用コメント。
+
+                if (i == 0) {
+                    System.out.println("if (文字列は対象外)");
+                }
+            }
+
+        } else if (false) {
+            System.out.println("else");
+        }
+
+        for (int value : new int[0]) {
+            System.out.println(value);
+        }
+    }
+}
+JAVA
+lint -o "$work_dir/blank-lines.xml" "$work_dir/BlankLines.java"
+if grep -q '\.RegexpMultilineCheck' "$work_dir/blank-lines.xml"; then
+    cat "$work_dir/blank-lines.xml"
+    exit 1
+fi
+# 空行を各1箇所だけ取り除き、5箇所すべてで検出することを確認する。
+for line in 3 5 8 13 17; do
+    sed "${line}d" "$work_dir/BlankLines.java" > "$work_dir/MissingBlank.java"
+    lint -o "$work_dir/missing-blank.xml" "$work_dir/MissingBlank.java"
+    grep -q '\.RegexpMultilineCheck' "$work_dir/missing-blank.xml"
+done
 printf 'Checkstyle test passed (sources clean; invalid fixture detected).\n'

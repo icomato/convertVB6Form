@@ -8,6 +8,11 @@
     <property name="severity" value="warning"/>
     <property name="fileExtensions" value="java"/>
     <module name="NewlineAtEndOfFile"/>
+    <!-- if/for行の前に空行を要求する。else ifは結合した行の前を検査。 -->
+    <module name="RegexpMultiline">
+        <property name="format" value="(?m)^[^\r\n]*\S[^\r\n]*\r?\n[\t ]*(?:}[\t ]*else[\t ]+)?(?:if|for)[\t ]*\("/>
+        <property name="message" value="if文・for文の直前には空行を入れてください。"/>
+    </module>
     <!-- 行頭のインデントはタブのみ。コメント行・継続行も対象。 -->
     <module name="RegexpSingleline">
         <property name="format" value="^\t* +"/>
