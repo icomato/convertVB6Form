@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
     <name>convertVB6Form</name>
-    <comment>VB6 form to VB.NET WinForms converter (Java 17)</comment>
+    <comment>VB6 form to VB.NET WinForms converter (Java 21)</comment>
     <projects>
     </projects>
     <buildSpec>

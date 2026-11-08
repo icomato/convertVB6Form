@@ -1,4 +1,4 @@
-# VB6 `.frm` → VB.NET WinForms Designer 変換ツール（Java 17）
+# VB6 `.frm` → VB.NET WinForms Designer 変換ツール（Java 21）
 
 添付サンプル `ReportWindowCoorsDummy.frm` を対象に作成した、外部ライブラリ不要のコンソールツールです。**画面レイアウトの移行支援**用であり、VB6アプリケーションを丸ごとVB.NETへ移行するものではありません。
 
@@ -11,18 +11,18 @@
 - `ReportWindow_coordinate_audit.csv`：元のTwips座標、変換後ピクセル座標、タブ所属の確認用CSV。
 - `ReportWindow_migration_report.txt`：未移行項目、タブ所属の推定、コントロール配列の変更など。
 
-## Eclipseで開く（Java 17）
+## Eclipseで開く（Java 21）
 
 このリポジトリは **Eclipse標準Javaプロジェクト** として構成しています。Maven・Gradle・追加ライブラリは不要です。
 
-1. Java 17 JDKと、Eclipse IDE for Java Developers（Java 17対応版）を用意します。
+1. Java 21 JDKと、Eclipse IDE for Java Developers（Java 21対応版）を用意します。
 2. GitHubから `convertVB6Form` をcloneします。既にclone済みなら `git pull` で更新してください。
 3. Eclipseで **File → Import → General → Existing Projects into Workspace** を選びます。
 4. **Select root directory** にcloneした `convertVB6Form` フォルダを指定し、表示されたプロジェクトを **Finish** で取り込みます。
-5. `src/Vb6WinFormsConverter.java` を開きます。Eclipse側は `JavaSE-17`、ソース文字コード `UTF-8` に設定済みです。
+5. `src/Vb6WinFormsConverter.java` を開きます。Eclipse側は `JavaSE-21`、ソース文字コード `UTF-8` に設定済みです。
 6. 実行する場合は **Run → Run Configurations → Java Application** でメインクラス `Vb6WinFormsConverter` を選択し、**Arguments → Program arguments** に入力.frmのパスと出力先フォルダを指定します。例：`C:\\VB6Source\\ReportWindowCoorsDummy.frm C:\\VBNetConverted`
 
-出力する `bin/` と `output/` はGit管理の対象外です。Eclipseの自動ビルドでも `bin/` にクラスファイルが生成されます。EclipseにJRE System Libraryのエラーが出る場合は、**Window → Preferences → Java → Installed JREs** でJava 17 JDKを追加・選択してください。
+出力する `bin/` と `output/` はGit管理の対象外です。Eclipseの自動ビルドでも `bin/` にクラスファイルが生成されます。EclipseにJRE System Libraryのエラーが出る場合は、**Window → Preferences → Java → Installed JREs** でJava 21 JDKを追加・選択してください。
 
 ## Javaコーディング規約への対応
 
@@ -35,7 +35,7 @@
 - フィールドはprivateにし、内部データの参照・更新はJavadoc付きのアクセサを通します。
 - メソッド・変数には用途の分かる名前を使用し、変換処理の名前は`to...`に揃えます。
 - クラスに`@author`・`@version`・`@since`、メソッドに`@param`・`@return`・必要な`@throws`を記載します。
-- Javaの標準APIのみを使用し、Java 17でビルド可能な構成を維持します。
+- Javaの標準APIのみを使用し、Java 21でビルド可能な構成を維持します。
 
 **互換性上の例外:** 既存の`java -cp bin Vb6WinFormsConverter ...`コマンドを変更しないよう、現時点ではデフォルトパッケージを保持します。将来パッケージを導入するときは、利用者の実行コマンドとの互換性を検討してください。
 
@@ -57,7 +57,7 @@ Checkstyle本体とEclipseプラグインはリリース周期が異なるため
    [公式manifest](https://github.com/checkstyle/eclipse-cs/blob/14.0.0/net.sf.eclipsecs.checkstyle/META-INF/MANIFEST.MF)
    は`JavaSE-21`を要求します。Eclipse自体がさらに新しいJavaを要求する版では、その要求にも従います。
    必要なら`eclipse.ini`の`-vmargs`より前に`-vm`とJDKの`bin/javaw.exe`の絶対パスを別々の行で指定します。
-   **Eclipseを動かすJavaと、プロジェクトのJavaは別です。** 本プロジェクトのJRE System Libraryは`JavaSE-17`、compiler complianceは17を維持します。
+   本プロジェクトもJava 21を対象とし、JRE System Libraryは`JavaSE-21`、compiler complianceは21に設定しています。
 2. **Help → Eclipse Marketplace...** で`Checkstyle`または`Checkstyle Plug-in`を検索し、**Checkstyle Plug-in**の**Install**を選びます。
 3. インストール内容・ライセンス等を確認して完了し、Eclipseを再起動します。
 4. **Help → About Eclipse IDE → Installation Details**でインストールされたプラグインのバージョンを確認します。
@@ -66,7 +66,7 @@ Checkstyle本体とEclipseプラグインはリリース周期が異なるため
 Marketplaceが使えない場合は**Help → Install New Software... → Add...**で名前`Checkstyle`、
 Location **`https://checkstyle.org/eclipse-cs-update-site/`**を登録してインストールします。
 特定の旧版が必要な場合だけ、**Show only the latest versions of available software**を外して版を選びます。
-古い記事のSourceForge更新URLは使いません。Java 17でEclipseを起動する必要がある環境では、最新版14.0.0は利用できません。
+古い記事のSourceForge更新URLは使いません。Java 21未満でEclipseを起動している環境では、最新版14.0.0は利用できません。
 旧プラグインへの適合性は未検証のため、まずEclipseの起動Javaを更新してください。
 
 #### このプロジェクトで有効化する（推奨）
@@ -142,7 +142,7 @@ java -cp C:\tools\checkstyle-14.0.0-all.jar com.puppycrawl.tools.checkstyle.Main
 
 warningはCLI終了コードが0でも発生し得るため、結果XMLに`<error ... severity="warning" ...>`がないことも確認します。
 `tests/checkstyle_test.sh`は既存4ソースの違反0件に加え、意図的な違反を検出すること、内部・ローカル・匿名クラスをすべて検出することを確認します。
-2026-11-08にCheckstyle 14.0.0／Java 21でlint検知テストと`--release 17`によるビルド・変換スモークテストを実行し、いずれも成功しました。
+2026-11-08にCheckstyle 14.0.0／Java 21でlint検知テストと`--release 21`によるビルド・変換スモークテストを実行し、いずれも成功しました。
 Eclipse画面上の操作はこの検証環境では実行しておらず、共有設定の読込形式と手順はプラグイン14.0.0の公式実装・資料で確認しています。
 
 ### スモークテスト
@@ -153,11 +153,11 @@ Eclipse画面上の操作はこの検証環境では実行しておらず、共�
 bash tests/smoke_test.sh
 ```
 
-このテストはJava 17コンパイル、Twips→Pixel換算、固定ラベルの自動サイズ調整、Designer.vbと監査レポートの生成を確認します。テスト対象フォームは一時ディレクトリに作成し、完了時に削除します。
+このテストはJava 21コンパイル、Twips→Pixel換算、固定ラベルの自動サイズ調整、Designer.vbと監査レポートの生成を確認します。テスト対象フォームは一時ディレクトリに作成し、完了時に削除します。
 
 ## Javaソースの構成とJavadoc
 
-ソースコードは **1ファイル1クラス** で構成し、内部クラスは使用していません。Java 17の標準APIのみで動作し、Eclipseからもそのまま編集できます。
+ソースコードは **1ファイル1クラス** で構成し、内部クラスは使用していません。Java 21の標準APIのみで動作し、Eclipseからもそのまま編集できます。
 
 | ファイル | 担当処理 |
 | --- | --- |
@@ -177,7 +177,7 @@ javadoc -private -encoding UTF-8 -charset UTF-8 -docencoding UTF-8 \
 
 ## Javaで変換する
 
-Java 17 以上の実行環境で、src配下の全Javaファイルをコンパイルして実行します（ビルド成果物はリポジトリには含めません）。
+Java 21 以上の実行環境で、src配下の全Javaファイルをコンパイルして実行します（ビルド成果物はリポジトリには含めません）。
 
 ```bash
 # 文字コードを明示してbinへコンパイル（Termux / Ubuntuでも利用可能）
@@ -191,7 +191,7 @@ java -Dfile.encoding=UTF-8 -cp bin Vb6WinFormsConverter ReportWindowCoorsDummy.f
 
 ```bash
 mkdir -p bin
-javac -encoding UTF-8 --release 17 -d bin src/*.java
+javac -encoding UTF-8 --release 21 -d bin src/*.java
 ```
 
 **重要:** このJavaソースには日本語のコメントや文字列が含まれます。環境によって `javac` の既定文字コードが `US-ASCII` になり、`unmappable character for encoding US-ASCII` が発生します。ソースを削除・変更せず、上記のように `-encoding UTF-8` を指定してください。

@@ -1,4 +1,4 @@
-' 自動生成: Vb6WinFormsConverter (Java 17) / レイアウト変換のみ
+' 自動生成: Vb6WinFormsConverter (Java 21) / レイアウト変換のみ
 ' 自動生成されたため手作業変更は避けてください。制限は migration_report.txt を参照。
 <Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()> _
 Partial Class ReportWindow

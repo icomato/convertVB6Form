@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Java 17ビルドと基本的なVB6フォーム変換を検査する（外部ライブラリ不要）。
+# Java 21ビルドと基本的なVB6フォーム変換を検査する（外部ライブラリ不要）。
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
 bash build.sh

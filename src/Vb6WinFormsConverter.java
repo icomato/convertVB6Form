@@ -17,7 +17,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * VB6フォームの.frmからVB.NET Windows Formsの画面定義を生成するJava 17ツール。
+ * VB6フォームの.frmからVB.NET Windows Formsの画面定義を生成するJava 21ツール。
  *
  * <p>Windows-31Jで読み込み、Twipsを指定DPIのPixelへ換算する。
  * SSTabはTabControl/TabPageへ変換し、Frameの親子関係を引き継ぐ。
@@ -747,7 +747,7 @@ public final class Vb6WinFormsConverter {
      */
     private static String toDesignerSource(Vb6ConversionState s) {
         StringBuilder out = new StringBuilder();
-        appendLine(out, "' 自動生成: Vb6WinFormsConverter (Java 17) / レイアウト変換のみ");
+        appendLine(out, "' 自動生成: Vb6WinFormsConverter (Java 21) / レイアウト変換のみ");
         appendLine(out, "' 自動生成されたため手作業変更は避けてください。制限は migration_report.txt を参照。");
         appendLine(out, "<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()> _");
         appendLine(out, "Partial Class " + s.getClassName());
