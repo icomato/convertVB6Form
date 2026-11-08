@@ -1,6 +1,6 @@
 # VB6 `.frm` → VB.NET WinForms Designer 変換ツール（Java 21）
 
-添付サンプル `ReportWindowCoorsDummy.frm` を対象に作成した、外部ライブラリ不要のコンソールツールです。**画面レイアウトの移行支援**用であり、VB6アプリケーションを丸ごとVB.NETへ移行するものではありません。
+添付サンプル `ReportWindowCoorsDummy.frm` を対象に作成した、実行時は外部ライブラリ不要のコンソールツールです。**画面レイアウトの移行支援**用であり、VB6アプリケーションを丸ごとVB.NETへ移行するものではありません。
 
 ## 生成物
 
@@ -13,7 +13,7 @@
 
 ## Eclipseで開く（Java 21）
 
-このリポジトリは **Eclipse標準Javaプロジェクト** として構成しています。Maven・Gradle・追加ライブラリは不要です。
+このリポジトリは **Eclipse標準Javaプロジェクト** として構成しています。Maven・Gradleは不要です。コンパイル時には同梱のLombok 1.18.48を使用します。EclipseへのLombok導入手順は後述します。
 
 1. Java 21 JDKと、Eclipse IDE for Java Developers（Java 21対応版）を用意します。
 2. GitHubから `convertVB6Form` をcloneします。既にclone済みなら `git pull` で更新してください。
@@ -32,24 +32,50 @@
 
 - **1ファイル1クラス**を守り、内部・匿名クラスを使いません。
 - インデントはタブのみ（表示幅4）、ソースはUTF-8、制御文には省略せず波括弧を付けます。
-- **すべてのif文・for文の直前に空行を1行以上**入れます。メソッド・ブロックの先頭、ネストした文、拡張for文も対象です。
-  `} else if (...) {`はその行の直前に空行を入れ、構文は同じ行に維持します。直前に説明コメントがある場合も、コメントとif/for行の間に空行を入れます。
+- **すべてのif文・for文の説明コメントを含むまとまりの前に空行を1行以上**入れます。メソッド・ブロックの先頭、ネストした文、拡張for文も対象です。
+  `} else if (...) {`はその行の直前に空行を入れ、構文は同じ行に維持します。説明コメントがある場合は、そのコメントの前に空行を置き、コメントとif/for行は隣接させます。
 - **すべてのメソッド間に空行を1行以上**入れます。コンストラクタも同様です。空行は、前のメソッドの終わりと、次のメソッドのJavadoc・アノテーションを含む宣言全体との間に置きます。
   `EmptyLineSeparator`で検査し、Eclipseの整形設定もメソッド間に空行1行を入れるようにしています。
-- フィールドはprivateにし、内部データの参照・更新はJavadoc付きのアクセサを通します。
+- フィールドはprivateにし、内部データの参照・更新は`@Data`で生成するアクセサを通します。日本語の説明はフィールドのJavadocに記載します。
 - メソッド・変数には用途の分かる名前を使用し、変換処理の名前は`to...`に揃えます。
 - クラスに`@author`・`@version`・`@since`、メソッドに`@param`・`@return`・必要な`@throws`を記載します。
-- Javaの標準APIのみを使用し、Java 21でビルド可能な構成を維持します。
+- 実行処理はJavaの標準APIを使用し、Java 21とLombokでビルド可能な構成を維持します。
 
 **互換性上の例外:** 既存の`java -cp bin Vb6WinFormsConverter ...`コマンドを変更しないよう、起動クラス`Vb6WinFormsConverter`はデフォルトパッケージを保持します。データ保持クラスは`entity`パッケージに配置しています。将来パッケージを導入するときは、利用者の実行コマンドとの互換性を検討してください。
 
 Eclipseでは`Ctrl+Shift+F`で整形できます。プロジェクトの`.settings/org.eclipse.jdt.core.prefs`と`.editorconfig`にタブ（表示幅4）・UTF-8の設定を登録しています。
 
+### Lombok（getter/setterの自動生成）
+
+3つのEntityに[`@Data`](https://projectlombok.org/features/Data)を使用し、手書きの単純なgetter/setterを省略しています。
+`final`のコレクションにはgetterのみが生成され、呼び出し側は従来どおりその内容を更新できます。
+`getProperty(String)`など属性の検索処理や集計メソッド、コンストラクタは手書きで保持しています。
+
+`@Data`はequals/hashCode/toStringも生成するため、本プロジェクトでは次のように調整しています。
+
+- Entityは可変で親子の循環参照があるため、equals/hashCodeは手書きで**従来のインスタンス同一性**を維持します。
+- toStringは`@ToString(onlyExplicitlyIncluded = true)`で名前・件数等の指定フィールドだけを表示し、親子・コレクションを再帰的にたどりません。
+- Lombokはコンパイル時だけ必要です。`lib/lombok-1.18.48.jar`を共有し、`.classpath`と`build.sh`に登録済みです。
+  配布元・SHA-256・ライセンスは`lib/README.md`に記載しています。
+
+#### EclipseへのLombok導入
+
+1. Eclipseを終了し、Java 21で`java -jar lib/lombok-1.18.48.jar`を実行します。
+2. インストーラで使用するEclipseを選択します。自動検出されない場合は**Specify location...**からEclipseの実行ファイルを指定します。
+3. **Install / Update**で導入した後、Eclipseを起動します。既に起動していた場合は完全に終了してから起動してください。
+4. **Help → About Eclipse IDE**の著作権表示末尾にLombokのバージョンがあることを確認します。
+5. プロジェクトをRefreshし、**Project → Clean...**で再ビルドします。生成getter/setterの未定義エラーがないことを確認してください。
+
+代替として、**Help → Install New Software...**から公式更新サイト`https://projectlombok.org/p2`でも導入できます。
+公式サイトはこのインストーラが未署名であること、通常のRestartだけでは不十分で完全終了・再起動が必要であることを案内しています。
+手順の出典は[公式Eclipseガイド](https://projectlombok.org/setup/eclipse)です。Eclipse画面での導入操作はこの環境では未検証です。
+JARをBuild Pathに追加するだけでは、Eclipseのエディタ・コンパイラへの導入は完了しません。
+
 ### Eclipse用Checkstyle（共有lint）
 
 `checkstyle.xml`が規則本体、`.checkstyle`がプロジェクト相対の参照と対象範囲（`src/**/*.java`）です。
 `.project`にもCheckstyleのbuilder/natureを登録しているため、プラグイン導入後は共有設定で検査できます。
-個人の絶対パスやワークスペース設定をGitに登録する必要はありません。Javaアプリ自体に依存ライブラリは追加していません。
+個人の絶対パスやワークスペース設定をGitに登録する必要はありません。Checkstyleは検査用ツールです。コンパイル用のLombokとは独立しており、実行時にはどちらも不要です。
 
 #### プラグインの導入
 
@@ -155,17 +181,18 @@ Eclipse画面上の操作はこの検証環境では実行しておらず、共�
 
 ### スモークテスト
 
-外部ライブラリを使わず、最小限のVB6フォームを生成して変換結果を確認できます。
+同梱Lombokでコンパイルし、最小限のVB6フォームを生成して変換結果を確認できます。実行時にLombokは不要です。
 
 ```bash
 bash tests/smoke_test.sh
 ```
 
 このテストはJava 21コンパイル、Twips→Pixel換算、固定ラベルの自動サイズ調整、Designer.vbと監査レポートの生成を確認します。テスト対象フォームは一時ディレクトリに作成し、完了時に削除します。
+あわせて`EntityBehaviorTest.java`で、Lombok生成アクセサ、親子の循環参照、同一性比較、属性変更後のHashSet検索を検査します。実行時のクラスパスにLombokは含めません。
 
 ## Javaソースの構成とJavadoc
 
-ソースコードは **1ファイル1クラス** で構成し、内部クラスは使用していません。データ保持クラスはクラス名に`Entity`を付け、`src/entity/`（`package entity`）に配置しています。メンバ変数の定義とメソッド・コンストラクタのJavadocの間には空行を入れています。Java 21の標準APIのみで動作し、Eclipseからもそのまま編集できます。
+ソースコードは **1ファイル1クラス** で構成し、内部クラスは使用していません。データ保持クラスはクラス名に`Entity`を付け、`src/entity/`（`package entity`）に配置しています。メンバ変数の定義とメソッド・コンストラクタのJavadocの間には空行を入れています。実行時はJava 21の標準APIだけで動作します。EclipseではLombokの導入が必要です。
 
 | ファイル | 担当処理 |
 | --- | --- |
@@ -174,14 +201,16 @@ bash tests/smoke_test.sh
 | `entity/Vb6TabInfoEntity.java` | SSTabのタブ枚数、子コントロールの所属、TabPageの管理 |
 | `entity/Vb6ConversionStateEntity.java` | 入力フォームの変換状態、警告、出力件数の管理 |
 
-各クラス、メソッド、主要フィールドに日本語のJavadocを記載しています。JDKの`javadoc`コマンドでHTMLリファレンスを生成できます。`-private`を指定することで、内部処理に使うprivateメソッドもドキュメントに含めます。
+各クラス、手書きメソッド、フィールドに日本語のJavadocを記載しています。生成アクセサも文書化するため、先に`delombok`で通常のJavaソースへ展開し、JDKの`javadoc`コマンドでHTMLリファレンスを生成します。`-private`を指定することで、内部処理に使うprivateメソッドもドキュメントに含めます。
 
 ```bash
-javadoc -private -encoding UTF-8 -charset UTF-8 -docencoding UTF-8 \
-  -d docs/api src/*.java src/entity/*.java
+java -jar lib/lombok-1.18.48.jar delombok src -d build/delombok --encoding UTF-8
+javadoc -private -classpath lib/lombok-1.18.48.jar -Xdoclint:all,-missing -encoding UTF-8 -charset UTF-8 -docencoding UTF-8 \
+  -d docs/api build/delombok/*.java build/delombok/entity/*.java
 ```
 
 生成物の`docs/api/`はGitの管理対象から除外しています。
+`-Xdoclint:all,-missing`は生成メソッドの不足タグの警告だけを除外し、構文や参照先等の検査を維持します。手書きソースのJavadocはCheckstyleでも検査します。
 
 ## Javaで変換する
 
@@ -199,7 +228,8 @@ java -Dfile.encoding=UTF-8 -cp bin Vb6WinFormsConverter ReportWindowCoorsDummy.f
 
 ```bash
 mkdir -p bin
-javac -encoding UTF-8 --release 21 -d bin src/*.java src/entity/*.java
+javac -encoding UTF-8 --release 21 -cp lib/lombok-1.18.48.jar \
+  -processorpath lib/lombok-1.18.48.jar -d bin src/*.java src/entity/*.java
 ```
 
 **重要:** このJavaソースには日本語のコメントや文字列が含まれます。環境によって `javac` の既定文字コードが `US-ASCII` になり、`unmappable character for encoding US-ASCII` が発生します。ソースを削除・変更せず、上記のように `-encoding UTF-8` を指定してください。

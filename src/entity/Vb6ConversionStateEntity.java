@@ -1,5 +1,8 @@
 package entity;
 
+import lombok.Data;
+import lombok.ToString;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -17,6 +20,8 @@ import java.util.Set;
 * @version 1.0 (Javaコーディング規約対応)
 * @since 1.0
 */
+@Data
+@ToString(onlyExplicitlyIncluded = true)
 public final class Vb6ConversionStateEntity {
 	/** ルートのVB.Form。 */
 	private Vb6FormNodeEntity form;
@@ -41,6 +46,7 @@ public final class Vb6ConversionStateEntity {
 	/** 未対応で省略したコントロール数。 */
 	private int ignoredCount;
 	/** 出力するVB.NETフォームのクラス名。 */
+	@ToString.Include
 	private String className;
 	/** 元フォームに含まれるVB6コード。参考保存用で実行コードには変換しない。 */
 	private String vb6Code = "";
@@ -59,113 +65,9 @@ public final class Vb6ConversionStateEntity {
 		warnings.add("WARN: " + s);
 	}
 
-	/**
-	* ルートのVB.Formノードを取得する。
-	* @return ルートのVB.Formノード。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public Vb6FormNodeEntity getForm() {
-		return form;
-	}
-
-	/**
-	* ルートのVB.Formノードを設定する。
-	* @param value 新しいルートのVB.Formノード
-	*/
-	public void setForm(Vb6FormNodeEntity value) {
-		this.form = value;
-	}
-
-	/**
-	* 解析した全コントロールを取得する。
-	* @return 解析した全コントロール。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public List<Vb6FormNodeEntity> getAll() {
-		return all;
-	}
-
-	/**
-	* 変換時に発生した警告の一覧を取得する。
-	* @return 変換時に発生した警告の一覧。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public List<String> getWarnings() {
-		return warnings;
-	}
-
-	/**
-	* 元識別子からノードを引く対応表を取得する。
-	* @return 元識別子からノードを引く対応表。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public Map<String, Vb6FormNodeEntity> getById() {
-		return byId;
-	}
-
-	/**
-	* SSTabごとの所属情報を取得する。
-	* @return SSTabごとの所属情報。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public Map<Vb6FormNodeEntity, Vb6TabInfoEntity> getTabs() {
-		return tabs;
-	}
-
-	/**
-	* 既に使用したフィールド名の集合を取得する。
-	* @return 既に使用したフィールド名の集合。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public Set<String> getUsedFields() {
-		return usedFields;
-	}
-
-	/**
-	* 座標換算に使用するDPIを取得する。
-	* @return 座標換算に使用するDPI。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public double getDpi() {
-		return dpi;
-	}
-
-	/**
-	* 座標換算に使用するDPIを設定する。
-	* @param value 新しい座標換算に使用するDPI
-	*/
-	public void setDpi(double value) {
-		this.dpi = value;
-	}
-
-	/**
-	* 所属タブを推定した件数を取得する。
-	* @return 所属タブを推定した件数。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public int getUnknownTabCount() {
-		return unknownTabCount;
-	}
-
-	/**
-	* 所属タブを推定した件数を設定する。
-	* @param value 新しい所属タブを推定した件数
-	*/
-	public void setUnknownTabCount(int value) {
-		this.unknownTabCount = value;
-	}
-
 	/** 所属タブを推定した件数を1増加させる。 */
 	public void incrementUnknownTabCount() {
 		unknownTabCount++;
-	}
-
-	/**
-	* 非選択タブの座標を補正した件数を取得する。
-	* @return 非選択タブの座標を補正した件数。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public int getRemappedTabCount() {
-		return remappedTabCount;
-	}
-
-	/**
-	* 非選択タブの座標を補正した件数を設定する。
-	* @param value 新しい非選択タブの座標を補正した件数
-	*/
-	public void setRemappedTabCount(int value) {
-		this.remappedTabCount = value;
 	}
 
 	/** 非選択タブの座標を補正した件数を1増加させる。 */
@@ -173,41 +75,9 @@ public final class Vb6ConversionStateEntity {
 		remappedTabCount++;
 	}
 
-	/**
-	* 出力した表示コントロール数を取得する。
-	* @return 出力した表示コントロール数。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public int getVisualCount() {
-		return visualCount;
-	}
-
-	/**
-	* 出力した表示コントロール数を設定する。
-	* @param value 新しい出力した表示コントロール数
-	*/
-	public void setVisualCount(int value) {
-		this.visualCount = value;
-	}
-
 	/** 出力した表示コントロール数を1増加させる。 */
 	public void incrementVisualCount() {
 		visualCount++;
-	}
-
-	/**
-	* 非対応として省略した件数を取得する。
-	* @return 非対応として省略した件数。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public int getIgnoredCount() {
-		return ignoredCount;
-	}
-
-	/**
-	* 非対応として省略した件数を設定する。
-	* @param value 新しい非対応として省略した件数
-	*/
-	public void setIgnoredCount(int value) {
-		this.ignoredCount = value;
 	}
 
 	/** 非対応として省略した件数を1増加させる。 */
@@ -216,34 +86,21 @@ public final class Vb6ConversionStateEntity {
 	}
 
 	/**
-	* 出力するVB.NETフォームのクラス名を取得する。
-	* @return 出力するVB.NETフォームのクラス名。コレクションの場合は変換処理から変更可能な参照
+	* 可変の解析ノードは値で比較せず、同じインスタンスかどうかで判定する。
+	* @param other 比較するオブジェクト
+	* @return 同じインスタンスの場合だけtrue
 	*/
-	public String getClassName() {
-		return className;
+	@Override
+	public boolean equals(Object other) {
+		return this == other;
 	}
 
 	/**
-	* 出力するVB.NETフォームのクラス名を設定する。
-	* @param value 新しい出力するVB.NETフォームのクラス名
+	* 属性変更や親子の循環参照に影響されない、従来どおりのハッシュ値を返す。
+	* @return インスタンスの識別用ハッシュ値
 	*/
-	public void setClassName(String value) {
-		this.className = value;
-	}
-
-	/**
-	* 元の.frmに含まれるVB6コードを取得する。
-	* @return 元の.frmに含まれるVB6コード。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public String getVb6Code() {
-		return vb6Code;
-	}
-
-	/**
-	* 元の.frmに含まれるVB6コードを設定する。
-	* @param value 新しい元の.frmに含まれるVB6コード
-	*/
-	public void setVb6Code(String value) {
-		this.vb6Code = value;
+	@Override
+	public int hashCode() {
+		return System.identityHashCode(this);
 	}
 }

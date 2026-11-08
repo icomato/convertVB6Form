@@ -1,6 +1,7 @@
 # Java build output
 *.class
 *.jar
+!/lib/lombok-1.18.48.jar
 /build/
 /out/
 

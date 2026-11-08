@@ -128,4 +128,30 @@ for line in 4 8; do
     lint -o "$work_dir/missing-method-space.xml" "$work_dir/MissingMethodSpace.java"
     grep -q '\.EmptyLineSeparatorCheck' "$work_dir/missing-method-space.xml"
 done
+# 空行とif/forの間に説明コメントを置けることと、空行漏れの検出を確認する。
+cat > "$work_dir/CommentSpacing.java" <<'JAVA'
+class CommentSpacing {
+    void run() {
+
+        // 条件を確認する。
+        if (true) {
+
+            // 要素を順に処理する。
+            for (int value : new int[0]) {
+                System.out.println(value);
+            }
+        }
+    }
+}
+JAVA
+lint -o "$work_dir/comment-spacing.xml" "$work_dir/CommentSpacing.java"
+if grep -q '\.RegexpMultilineCheck' "$work_dir/comment-spacing.xml"; then
+    cat "$work_dir/comment-spacing.xml"
+    exit 1
+fi
+for line in 3 6; do
+    sed "${line}d" "$work_dir/CommentSpacing.java" > "$work_dir/MissingCommentSpace.java"
+    lint -o "$work_dir/missing-comment-space.xml" "$work_dir/MissingCommentSpace.java"
+    grep -q '\.RegexpMultilineCheck' "$work_dir/missing-comment-space.xml"
+done
 printf 'Checkstyle test passed (sources clean; invalid fixture detected).\n'

@@ -1,5 +1,8 @@
 package entity;
 
+import lombok.Data;
+import lombok.ToString;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,10 +17,13 @@ import java.util.Map;
 * @version 1.0 (Javaコーディング規約対応)
 * @since 1.0
 */
+@Data
+@ToString(onlyExplicitlyIncluded = true)
 public final class Vb6TabInfoEntity {
 	/** SSTabコントロール本体。 */
 	private Vb6FormNodeEntity tab;
 	/** タブの枚数。 */
+	@ToString.Include
 	private int count;
 	/** SSTab見出しの高さ（Twips）。 */
 	private int tabHeightTwips;
@@ -33,66 +39,21 @@ public final class Vb6TabInfoEntity {
 	}
 
 	/**
-	* 対象のSSTabノードを取得する。
-	* @return 対象のSSTabノード。コレクションの場合は変換処理から変更可能な参照
+	* 可変の解析ノードは値で比較せず、同じインスタンスかどうかで判定する。
+	* @param other 比較するオブジェクト
+	* @return 同じインスタンスの場合だけtrue
 	*/
-	public Vb6FormNodeEntity getTab() {
-		return tab;
+	@Override
+	public boolean equals(Object other) {
+		return this == other;
 	}
 
 	/**
-	* 対象のSSTabノードを設定する。
-	* @param value 新しい対象のSSTabノード
+	* 属性変更や親子の循環参照に影響されない、従来どおりのハッシュ値を返す。
+	* @return インスタンスの識別用ハッシュ値
 	*/
-	public void setTab(Vb6FormNodeEntity value) {
-		this.tab = value;
-	}
-
-	/**
-	* SSTabが持つタブ枚数を取得する。
-	* @return SSTabが持つタブ枚数。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public int getCount() {
-		return count;
-	}
-
-	/**
-	* SSTabが持つタブ枚数を設定する。
-	* @param value 新しいSSTabが持つタブ枚数
-	*/
-	public void setCount(int value) {
-		this.count = value;
-	}
-
-	/**
-	* タブ見出しの高さ（Twips）を取得する。
-	* @return タブ見出しの高さ（Twips）。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public int getTabHeightTwips() {
-		return tabHeightTwips;
-	}
-
-	/**
-	* タブ見出しの高さ（Twips）を設定する。
-	* @param value 新しいタブ見出しの高さ（Twips）
-	*/
-	public void setTabHeightTwips(int value) {
-		this.tabHeightTwips = value;
-	}
-
-	/**
-	* コントロールから所属タブ番号への対応表を取得する。
-	* @return コントロールから所属タブ番号への対応表。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public Map<String, Integer> getAssignments() {
-		return assignments;
-	}
-
-	/**
-	* 生成するTabPageノードの一覧を取得する。
-	* @return 生成するTabPageノードの一覧。コレクションの場合は変換処理から変更可能な参照
-	*/
-	public List<Vb6FormNodeEntity> getPages() {
-		return pages;
+	@Override
+	public int hashCode() {
+		return System.identityHashCode(this);
 	}
 }

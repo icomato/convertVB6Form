@@ -71,22 +71,22 @@ public final class Vb6WinFormsConverter {
 	*/
 	public static void main(String[] args) throws IOException {
 
+		// 引数の過不足を検出したら、使用方法を表示して変換を開始せず終了する。
 		if (args.length < 2 || args.length > 3) {
-			// 引数の過不足を検出したら、使用方法を表示して変換を開始せず終了する。
 			System.err.println("使い方: java -jar Vb6WinFormsConverter.jar <input.frm> <output-dir> [dpi: default 96]");
 			System.exit(2);
 		}
 		Path source = Path.of(args[0]).toAbsolutePath().normalize();
 		Path out = Path.of(args[1]).toAbsolutePath().normalize();
 
+		// 通常ファイルとして読み込めない入力を拒否し、後続の解析失敗を防ぐ。
 		if (!Files.isRegularFile(source)) {
-			// 通常ファイルとして読み込めない入力を拒否し、後続の解析失敗を防ぐ。
 			throw new IOException("入力ファイルがありません: " + source);
 		}
 		double dpi = args.length == 3 ? Double.parseDouble(args[2]) : 96.0;
 
+		// 座標換算に使えないDPIを拒否し、極端な拡大縮小や非有限値を防ぐ。
 		if (!(dpi >= 48.0 && dpi <= 768.0) || !Double.isFinite(dpi)) {
-			// 座標換算に使えないDPIを拒否し、極端な拡大縮小や非有限値を防ぐ。
 			throw new IllegalArgumentException("DPIは48～768を指定してください");
 		}
 		// ステップ1: .frm解析 → ステップ2: コントロールの種類と配置を確定する。
@@ -104,8 +104,8 @@ public final class Vb6WinFormsConverter {
 		Files.writeString(designer, toDesignerSource(st), StandardCharsets.UTF_8);
 		// 手書きの処理を誤って消さないよう、コードビハインドは既存なら上書きしない。
 
+		// 既存の手書きコードを保護し、新規出力時だけコードビハインドを作成する。
 		if (!Files.exists(codeBehind)) {
-			// 既存の手書きコードを保護し、新規出力時だけコードビハインドを作成する。
 			Files.writeString(codeBehind,
 			"' VB6から移植したイベント処理・ビジネスロジックは未移行です。\r\n" +
 			"' 元.frmのコード末尾を確認して必要な処理を移植してください。\r\n" +
@@ -120,8 +120,8 @@ public final class Vb6WinFormsConverter {
 		}
 		// Program.vbと.vbprojも既存ファイルを保護する。
 
+		// 既存の起動処理を保護し、Program.vbがない場合だけ標準の起動処理を生成する。
 		if (!Files.exists(program)) {
-			// 既存の起動処理を保護し、Program.vbがない場合だけ標準の起動処理を生成する。
 			Files.writeString(program,
 			"Imports System.Windows.Forms\r\n" +
 			"Friend Module Program\r\n" +
@@ -134,8 +134,8 @@ public final class Vb6WinFormsConverter {
 			"End Module\r\n", StandardCharsets.UTF_8);
 		}
 
+		// 移行後のプロジェクト設定を上書きしないよう、新規の場合だけ生成する。
 		if (!Files.exists(project)) {
-			// 移行後のプロジェクト設定を上書きしないよう、新規の場合だけ生成する。
 			Files.writeString(project,
 			"<Project Sdk=\"Microsoft.NET.Sdk\">\r\n" +
 			"  <PropertyGroup>\r\n" +
@@ -185,30 +185,30 @@ public final class Vb6WinFormsConverter {
 		Deque<Vb6FormNodeEntity> stack = new ArrayDeque<>();
 		int codeStart = lines.length;
 
+		// フォーム定義を先頭から読み、スタックでコントロール階層を復元する。
 		for (int i = 0; i < lines.length; i++) {
-			// フォーム定義を先頭から読み、スタックでコントロール階層を復元する。
 			String line = lines[i].trim();
 			// ここから先はVB6イベント処理などのコード部なので、レイアウト解析を終了する。
 
+			// VB6コード部の開始位置を保存し、画面定義の解析を終了する。
 			if (line.startsWith("Attribute VB_Name")) {
-				// VB6コード部の開始位置を保存し、画面定義の解析を終了する。
 				codeStart = i;
 				break;
 			}
 			Matcher begin = BEGIN.matcher(line);
 			Matcher nested = BEGIN_PROPERTY.matcher(line);
 
+			// コントロールの開始宣言からノードを作成し、階層と一覧に登録する。
 			if (begin.matches()) {
-				// コントロールの開始宣言からノードを作成し、階層と一覧に登録する。
 				Vb6FormNodeEntity parent = stack.peek();
 				Vb6FormNodeEntity node = new Vb6FormNodeEntity("control", begin.group(1), begin.group(2), parent);
 
+				// 現在の親コントロールに子を登録し、元の包含関係を保持する。
 				if (parent != null) {
-					// 現在の親コントロールに子を登録し、元の包含関係を保持する。
 					parent.getChildren().add(node);
 
+				// 最初のトップレベルノードを変換対象フォームとして採用する。
 				} else if (s.getForm() == null) {
-					// 最初のトップレベルノードを変換対象フォームとして採用する。
 					s.setForm(node);
 				} else {
 					s.addWarning("複数のトップレベルフォームがあります: " + node.getName());
@@ -217,56 +217,56 @@ public final class Vb6WinFormsConverter {
 				s.getAll().add(node);
 				// BeginProperty Fontなどは別コントロールではなく親コントロールの属性。
 
+			// Fontなどの複合属性を親コントロールに属する属性ノードとして読み込む。
 			} else if (nested.matches()) {
-				// Fontなどの複合属性を親コントロールに属する属性ノードとして読み込む。
 				Vb6FormNodeEntity parent = stack.peek();
 
+				// 対応する親がない複合属性は不正なフォーム定義として扱う。
 				if (parent == null) {
-					// 対応する親がない複合属性は不正なフォーム定義として扱う。
 					throw new IOException("BeginPropertyの親がありません (行 " + (i + 1) + ")");
 				}
 				Vb6FormNodeEntity node = new Vb6FormNodeEntity("property", "", nested.group(1), parent);
 				parent.getNested().put(node.getName(), node);
 				stack.push(node);
 
+			// 終了宣言に対応する開始ノードを取り出し、入れ子の整合性を確認する。
 			} else if (line.equals("End") || line.equals("EndProperty")) {
-				// 終了宣言に対応する開始ノードを取り出し、入れ子の整合性を確認する。
 
+				// 開始宣言より終了宣言が多い場合は、行番号を添えて解析を中止する。
 				if (stack.isEmpty()) {
-					// 開始宣言より終了宣言が多い場合は、行番号を添えて解析を中止する。
 					throw new IOException("Endの数が不正です (行 " + (i + 1) + ")");
 				}
 				Vb6FormNodeEntity popped = stack.pop();
 
+				// コントロールと複合属性で終了宣言の種類が違う場合は、対応不整合を通知する。
 				if (line.equals("End") && !popped.getKind().equals("control") ||
 				line.equals("EndProperty") && !popped.getKind().equals("property")) {
-					// コントロールと複合属性で終了宣言の種類が違う場合は、対応不整合を通知する。
 					throw new IOException("Begin/Endの対応が不正です (行 " + (i + 1) + ")");
 				}
 
+			// 開いている定義の内側だけをプロパティの読み込み対象とする。
 			} else if (!stack.isEmpty()) {
-				// 開いている定義の内側だけをプロパティの読み込み対象とする。
 				Matcher prop = PROPERTY.matcher(line);
 
+				// 代入形式の行から属性名と値を抽出し、現在のノードに保存する。
 				if (prop.matches()) {
-					// 代入形式の行から属性名と値を抽出し、現在のノードに保存する。
 					stack.peek().getProps().put(prop.group(1).trim(), prop.group(2).trim());
 				}
 			}
 		}
 
+		// 閉じられていない開始宣言が残っていれば、不完全な定義として解析を中止する。
 		if (!stack.isEmpty()) {
-			// 閉じられていない開始宣言が残っていれば、不完全な定義として解析を中止する。
 			throw new IOException("BeginとEndが対応していません: " + stack.peek().getName());
 		}
 
+		// ルートがVB.Formであることを確認し、フォーム以外の入力を拒否する。
 		if (s.getForm() == null || !"VB.Form".equals(s.getForm().getVbType())) {
-			// ルートがVB.Formであることを確認し、フォーム以外の入力を拒否する。
 			throw new IOException("VB.Formが見つかりません");
 		}
 
+		// レイアウト以降のVB6コードを、移行レポートに参考掲載するため保存する。
 		if (codeStart < lines.length) {
-			// レイアウト以降のVB6コードを、移行レポートに参考掲載するため保存する。
 			s.setVb6Code(String.join("\n", Arrays.copyOfRange(lines, codeStart, lines.length)));
 		}
 		return s;
@@ -283,31 +283,31 @@ public final class Vb6WinFormsConverter {
 		.matcher(s.getVb6Code());
 		s.setClassName(toSafeIdentifier(classMatch.find() ? classMatch.group(1) : s.getForm().getName()));
 
+		// フォームの座標単位が前提と異なる場合は、暫定換算であることを警告する。
 		if (s.getForm().hasProperty("ScaleMode") && parseInteger(s.getForm().getProperty("ScaleMode"), 1) != 1) {
-			// フォームの座標単位が前提と異なる場合は、暫定換算であることを警告する。
 			s.addWarning("Form.ScaleMode がTwips以外です。座標は96DPIのTwipsとして暫定変換します");
 		}
 
+		// 各ノードの識別子・出力型・座標を決定し、変換可否と追加確認事項を記録する。
 		for (Vb6FormNodeEntity n : s.getAll()) {
-			// 各ノードの識別子・出力型・座標を決定し、変換可否と追加確認事項を記録する。
 			n.setId(n.getName() + (n.hasProperty("Index") ? "(" + parseInteger(n.getProperty("Index"), 0) + ")" : ""));
 			n.setField(toUniqueFieldName(s, toSafeIdentifier(n.getName() + (n.hasProperty("Index")
 			? "_" + parseInteger(n.getProperty("Index"), 0) : ""))));
 			n.setWinType(toWinFormsControlType(n.getVbType()));
 
+			// 対応するWinForms型がないノードを出力対象から外し、件数と警告を記録する。
 			if (n.getWinType() == null) {
-				// 対応するWinForms型がないノードを出力対象から外し、件数と警告を記録する。
 				n.setSupported(false);
 				s.incrementIgnoredCount();
 				s.addWarning(n.getId() + " (" + n.getVbType() + ") はWinForms相当コントロールがなく省略しました");
 
+			// フォーム本体を除き、対応型のあるコントロールを出力件数に数える。
 			} else if (n != s.getForm()) {
-				// フォーム本体を除き、対応型のあるコントロールを出力件数に数える。
 				s.incrementVisualCount();
 			}
 
+			// コントロール配列の個別変換と、配列イベントが別途移植対象であることを知らせる。
 			if (n.hasProperty("Index")) {
-				// コントロール配列の個別変換と、配列イベントが別途移植対象であることを知らせる。
 				s.addWarning(n.getId() + " はVB6のコントロール配列です。WinFormsでは " + n.getField() + " へ個別変換しました。配列イベント処理の移植は別途必要です");
 			}
 			n.setLeftTwips(parseInteger(n.getProperty("Left"), 0));
@@ -319,14 +319,14 @@ public final class Vb6WinFormsConverter {
 			n.setPixelWidth(toPixels(n.getWidthTwips(), s.getDpi()));
 			n.setPixelHeight(toPixels(n.getHeightTwips(), s.getDpi()));
 
+			// 参照表を更新した結果、同じVB6識別子が存在した場合は重複を警告する。
 			if (n.getId() != null && s.getById().put(n.getId(), n) != null) {
-				// 参照表を更新した結果、同じVB6識別子が存在した場合は重複を警告する。
 				s.addWarning("VB6コントロール識別子が重複しています: " + n.getId());
 			}
 			// SSTabは後で子要素を適切なTabPageへ移すため、タブ数と見出し高を保持する。
 
+			// SSTabのタブ数と見出し高さを保存し、TabPage生成と座標補正に備える。
 			if ("TabDlg.SSTab".equals(n.getVbType())) {
-				// SSTabのタブ数と見出し高さを保存し、TabPage生成と座標補正に備える。
 				Vb6TabInfoEntity t = new Vb6TabInfoEntity();
 				t.setTab(n);
 				t.setCount(Math.max(1, parseInteger(n.getProperty("Tabs"), 1)));
@@ -334,39 +334,39 @@ public final class Vb6WinFormsConverter {
 				s.getTabs().put(n, t);
 			}
 
+			// 画像属性はFRX参照を含む可能性があるため、画像が未移行であることを知らせる。
 			if (n.hasProperty("Picture")) {
-				// 画像属性はFRX参照を含む可能性があるため、画像が未移行であることを知らせる。
 				s.addWarning(n.getId() + " のPictureは .frx 参照の可能性があります。画像リソースは未移行です");
 			}
 
+			// リスト初期値のFRX依存を警告し、移行後のデータ確認を促す。
 			if (n.hasProperty("ItemData") || n.hasProperty("List")) {
-				// リスト初期値のFRX依存を警告し、移行後のデータ確認を促す。
 				s.addWarning(n.getId() + " のリスト初期値はFRXを参照する場合があります。実データは未移行です");
 			}
 
+			// コントロールの座標単位がTwips以外なら、子の配置の手動確認を促す。
 			if (n.hasProperty("ScaleMode") && parseInteger(n.getProperty("ScaleMode"), 1) != 1) {
-				// コントロールの座標単位がTwips以外なら、子の配置の手動確認を促す。
 				s.addWarning(n.getId() + " のScaleModeはTwipsではありません。子コントロール座標の手動検証が必要です");
 			}
 		}
 
+		// 各SSTabの明示的な所属情報を読み込み、必要なTabPageを準備する。
 		for (Vb6TabInfoEntity ti : s.getTabs().values()) {
-			// 各SSTabの明示的な所属情報を読み込み、必要なTabPageを準備する。
 
+			// SSTabの属性から、子コントロールのタブ所属を表す定義を探す。
 			for (Map.Entry<String, String> e : ti.getTab().getProps().entrySet()) {
-				// SSTabの属性から、子コントロールのタブ所属を表す定義を探す。
 				Matcher match = TAB_CONTROL.matcher(e.getKey());
 
+				// Tab(n).Control(m)の定義を、子識別子からタブ番号を引く対応表に変換する。
 				if (match.matches()) {
-					// Tab(n).Control(m)の定義を、子識別子からタブ番号を引く対応表に変換する。
 					int tabIdx = Integer.parseInt(match.group(1));
 					String original = parseVbString(e.getValue());
 					ti.getAssignments().put(original, tabIdx);
 				}
 			}
 
+			// 宣言されたタブ枚数に合わせて、出力先のTabPageノードを作成する。
 			for (int i = 0; i < ti.getCount(); i++) {
-				// 宣言されたタブ枚数に合わせて、出力先のTabPageノードを作成する。
 				Vb6FormNodeEntity page = new Vb6FormNodeEntity("generated", "WinForms.TabPage", ti.getTab().getName() + "_TabPage" + i, ti.getTab());
 				page.setField(toUniqueFieldName(s, toSafeIdentifier(page.getName())));
 				page.setWinType("System.Windows.Forms.TabPage");
@@ -375,47 +375,47 @@ public final class Vb6WinFormsConverter {
 				ti.getPages().add(page);
 			}
 
+			// タブ見出し画像は復元できないため、移行対象外であることを記録する。
 			if (ti.getTab().hasProperty("TabPicture(0)")) {
-				// タブ見出し画像は復元できないため、移行対象外であることを記録する。
 				s.addWarning(ti.getTab().getId() + " のTabPictureは移行しません（.frx画像未添付）");
 			}
 		}
 		// SSTab直下のコントロールは親をTabPageへ変更してから座標を補正する。
 		// Frame等の内側では元の親子関係と相対座標を維持する。
 
+		// 各ノードの出力先の親を確定し、SSTab直下の座標だけを補正する。
 		for (Vb6FormNodeEntity n : s.getAll()) {
-			// 各ノードの出力先の親を確定し、SSTab直下の座標だけを補正する。
 
+			// SSTab直下の子を実際のTabPageに割り当て、タブ内の相対座標に直す。
 			if (n.getParent() != null && s.getTabs().containsKey(n.getParent())) {
-				// SSTab直下の子を実際のTabPageに割り当て、タブ内の相対座標に直す。
 				Vb6TabInfoEntity ti = s.getTabs().get(n.getParent());
 				Integer tab = ti.getAssignments().get(n.getId());
 				boolean inferred = false;
 				// 明示されたタブ所属がない場合、同名コントロール配列から推定する。
 				// それでも不明なら符号から暫定配置して警告に記録する。
 
+				// 所属の明示がない子は、同名の配列要素からタブを推定する。
 				if (tab == null) {
-					// 所属の明示がない子は、同名の配列要素からタブを推定する。
 					// Array siblings can establish otherwise missing tab membership.
 					Set<Integer> siblings = new LinkedHashSet<>();
 
+					// 同じSSTabの子を調べ、同名コントロールの既知の所属を収集する。
 					for (Vb6FormNodeEntity other : n.getParent().getChildren()) {
-						// 同じSSTabの子を調べ、同名コントロールの既知の所属を収集する。
 
+						// 自分自身と別名のコントロールは、所属を推定する根拠から除外する。
 						if (other == n || !other.getName().equals(n.getName())) {
-							// 自分自身と別名のコントロールは、所属を推定する根拠から除外する。
 							continue;
 						}
 						Integer assigned = ti.getAssignments().get(other.getId());
 
+						// 明示された所属だけを推定の根拠として集め、未割り当て要素は使わない。
 						if (assigned != null) {
-							// 明示された所属だけを推定の根拠として集め、未割り当て要素は使わない。
 							siblings.add(assigned);
 						}
 					}
 
+					// 同名要素の所属が一つに定まる場合は、そのタブを推定先として採用する。
 					if (siblings.size() == 1) {
-						// 同名要素の所属が一つに定まる場合は、そのタブを推定先として採用する。
 						tab = siblings.iterator().next();
 					} else {
 						tab = n.getLeftTwips() >= 0 ? 0 : Math.min(1, ti.getCount() - 1);
@@ -423,15 +423,15 @@ public final class Vb6WinFormsConverter {
 					inferred = true;
 				}
 
+				// 範囲外のタブ番号は警告したうえでTab0に補正し、ページ参照エラーを防ぐ。
 				if (tab < 0 || tab >= ti.getCount()) {
-					// 範囲外のタブ番号は警告したうえでTab0に補正し、ページ参照エラーを防ぐ。
 					s.addWarning(n.getId() + " のタブ番号が不正です: " + tab + "。Tab0に置き換えます");
 					tab = 0;
 				}
 				n.setTabIndex(tab);
 
+				// 推定配置の件数と根拠不足を記録し、移行後に確認できるようにする。
 				if (inferred) {
-					// 推定配置の件数と根拠不足を記録し、移行後に確認できるようにする。
 					s.incrementUnknownTabCount();
 					s.addWarning(n.getId() + " はTab(n).Control一覧にありません。タブ" + tab + " に推定配置しました（要確認）");
 				}
@@ -440,8 +440,8 @@ public final class Vb6WinFormsConverter {
 				long correctedLeft = n.getLeftTwips() < -10000
 				? (long) n.getLeftTwips() + SSTAB_HIDE_TWIPS : n.getLeftTwips();
 
+				// 非表示タブの退避座標を補正したノードだけを、補正件数に加算する。
 				if (correctedLeft != n.getLeftTwips()) {
-					// 非表示タブの退避座標を補正したノードだけを、補正件数に加算する。
 					s.incrementRemappedTabCount();
 				}
 				n.setPixelLeft(toPixels(correctedLeft, s.getDpi()));
@@ -450,15 +450,15 @@ public final class Vb6WinFormsConverter {
 				long correctedTop = (long) n.getTopTwips() - ti.getTabHeightTwips();
 				// Some VB6 controls begin slightly above the tab header baseline.
 
+				// 見出し付近の小さな負の位置を原点へ丸め、TabPage内でのはみ出しを抑える。
 				if (correctedTop < 0 && correctedTop > -200) {
-					// 見出し付近の小さな負の位置を原点へ丸め、TabPage内でのはみ出しを抑える。
 					correctedTop = 0;
 				}
 				n.setPixelTop(toPixels(correctedTop, s.getDpi()));
 				n.setResolvedParent(ti.getPages().get(tab).getField());
 
+			// SSTab以外の子は、元の親をそのまま出力先の親として保持する。
 			} else if (n.getParent() != null) {
-				// SSTab以外の子は、元の親をそのまま出力先の親として保持する。
 				n.setResolvedParent(n.getParent().getField());
 			}
 		}
@@ -487,20 +487,20 @@ public final class Vb6WinFormsConverter {
 	private static String toSafeIdentifier(String name) {
 		String result = name.replaceAll("[^\\p{L}\\p{N}_]", "_");
 
+		// 名前が空になった場合も、有効な識別子の候補を用意する。
 		if (result.isEmpty()) {
-			// 名前が空になった場合も、有効な識別子の候補を用意する。
 			result = "Unnamed";
 		}
 
+		// 数字で始まる名前に接頭辞を付け、VB.NETの識別子として使える形にする。
 		if (Character.isDigit(result.charAt(0))) {
-			// 数字で始まる名前に接頭辞を付け、VB.NETの識別子として使える形にする。
 			result = "ctl_" + result;
 		}
 		// Avoid collision with VB.NET keywords while preserving original-ish designer names.
 		Set<String> keywords = Set.of("Class", "End", "New", "If", "Then", "Else", "Module", "Sub", "Me", "Public", "Private", "Friend", "Partial", "Namespace", "Property", "Integer", "String");
 
+		// 予約語と同じ名前には接頭辞を付け、生成コードでの構文衝突を避ける。
 		if (keywords.contains(result)) {
-			// 予約語と同じ名前には接頭辞を付け、生成コードでの構文衝突を避ける。
 			result = "ctl_" + result;
 		}
 		return result;
@@ -543,8 +543,8 @@ public final class Vb6WinFormsConverter {
 	*/
 	private static int parseInteger(String value, int fallback) {
 
+		// 未設定の数値属性には、呼び出し元が指定した既定値を使う。
 		if (value == null) {
-			// 未設定の数値属性には、呼び出し元が指定した既定値を使う。
 			return fallback;
 		}
 		try {
@@ -571,27 +571,27 @@ public final class Vb6WinFormsConverter {
 	*/
 	private static String parseVbString(String vbValue) {
 
+		// 未設定の文字列属性を空文字列として扱い、後続の文字列処理を簡潔にする。
 		if (vbValue == null) {
-			// 未設定の文字列属性を空文字列として扱い、後続の文字列処理を簡潔にする。
 			return "";
 		}
 		String t = vbValue.trim();
 
+		// 引用符で囲まれていない値は、末尾のVB6コメントを除いて返す。
 		if (!t.startsWith("\"")) {
-			// 引用符で囲まれていない値は、末尾のVB6コメントを除いて返す。
 			return t.split("\\s+'", 2)[0];
 		}
 		StringBuilder b = new StringBuilder();
 
+		// 開始引用符の次から読み、引用符のエスケープと終端を区別する。
 		for (int i = 1; i < t.length(); i++) {
-			// 開始引用符の次から読み、引用符のエスケープと終端を区別する。
 			char c = t.charAt(i);
 
+			// 引用符を見つけたら、文字として残すか文字列の終端とするかを判定する。
 			if (c == '"') {
-				// 引用符を見つけたら、文字として残すか文字列の終端とするかを判定する。
 
+				// 連続する二つの引用符を一文字に復元し、二文字目を読み飛ばす。
 				if (i + 1 < t.length() && t.charAt(i + 1) == '"') {
-					// 連続する二つの引用符を一文字に復元し、二文字目を読み飛ばす。
 					b.append('"');
 					i++;
 				} else {
@@ -688,56 +688,56 @@ public final class Vb6WinFormsConverter {
 	*/
 	private static void appendControlProperties(StringBuilder out, Vb6FormNodeEntity n, Vb6ConversionStateEntity s) {
 
+		// 未対応ノードとフォーム本体は、子コントロール用の属性出力から除外する。
 		if (!n.isSupported() || n == s.getForm()) {
-			// 未対応ノードとフォーム本体は、子コントロール用の属性出力から除外する。
 			return;
 		}
 
+		// ImageListなどの非表示部品には、位置やサイズなどの画面属性を出力しない。
 		if (isNonVisual(n)) {
-			// ImageListなどの非表示部品には、位置やサイズなどの画面属性を出力しない。
 			return;
 		}
 		appendPropertyAssignment(out, n, "Name", toVbStringLiteral(n.getField()));
 		appendPropertyAssignment(out, n, "Location", "New System.Drawing.Point(" + n.getPixelLeft() + ", " + n.getPixelTop() + ")");
 
+		// 元定義にサイズ指定がある場合だけ、最小1ピクセルの表示サイズを設定する。
 		if (n.hasProperty("Width") || n.hasProperty("Height")) {
-			// 元定義にサイズ指定がある場合だけ、最小1ピクセルの表示サイズを設定する。
 			appendPropertyAssignment(out, n, "Size", "New System.Drawing.Size(" + Math.max(1, n.getPixelWidth()) + ", " + Math.max(1, n.getPixelHeight()) + ")");
 		}
 
+		// VB6のCaptionを、WinFormsで表示するTextに引き継ぐ。
 		if (n.hasProperty("Caption")) {
-			// VB6のCaptionを、WinFormsで表示するTextに引き継ぐ。
 			appendPropertyAssignment(out, n, "Text", toVbStringLiteral(parseVbString(n.getProperty("Caption"))));
 		}
 
+		// TextBox以外のText属性を引き継ぎ、TextBox固有の出力処理との重複を避ける。
 		if (n.hasProperty("Text") && !n.getVbType().equals("VB.TextBox")) {
-			// TextBox以外のText属性を引き継ぎ、TextBox固有の出力処理との重複を避ける。
 			appendPropertyAssignment(out, n, "Text", toVbStringLiteral(parseVbString(n.getProperty("Text"))));
 		}
 
+		// 表示・非表示の明示指定がある場合だけ、元の状態を引き継ぐ。
 		if (n.hasProperty("Visible")) {
-			// 表示・非表示の明示指定がある場合だけ、元の状態を引き継ぐ。
 			appendPropertyAssignment(out, n, "Visible", toVbBooleanLiteral(isVbTrue(n.getProperty("Visible"))));
 		}
 
+		// 操作可否の明示指定がある場合だけ、元のEnabled状態を引き継ぐ。
 		if (n.hasProperty("Enabled")) {
-			// 操作可否の明示指定がある場合だけ、元のEnabled状態を引き継ぐ。
 			appendPropertyAssignment(out, n, "Enabled", toVbBooleanLiteral(isVbTrue(n.getProperty("Enabled"))));
 		}
 
+		// 明示されたタブ移動順を数値として出力する。
 		if (n.hasProperty("TabIndex")) {
-			// 明示されたタブ移動順を数値として出力する。
 			appendPropertyAssignment(out, n, "TabIndex", Integer.toString(parseInteger(n.getProperty("TabIndex"), 0)));
 		}
 		// フォント名・ポイント数・太字などはBeginProperty Fontから復元する。
 		Vb6FormNodeEntity font = n.getNested().get("Font");
 
+		// 複合属性Fontがある場合だけ、名前・サイズ・装飾・文字セットを復元する。
 		if (font != null) {
-			// 複合属性Fontがある場合だけ、名前・サイズ・装飾・文字セットを復元する。
 			String fontName = parseVbString(font.getProperty("Name"));
 
+			// フォント名が空の場合は、生成コードで使用する既定フォントを補う。
 			if (fontName.isEmpty()) {
-				// フォント名が空の場合は、生成コードで使用する既定フォントを補う。
 				fontName = "MS UI Gothic";
 			}
 			String fontSize = font.getProperty("Size") == null ? "9" : font.getProperty("Size").trim();
@@ -748,23 +748,23 @@ public final class Vb6WinFormsConverter {
 			}
 			List<String> styles = new ArrayList<>();
 
+			// VB6の太字に相当するWeightなら、出力するフォント装飾にBoldを加える。
 			if (parseInteger(font.getProperty("Weight"), 400) >= 700) {
-				// VB6の太字に相当するWeightなら、出力するフォント装飾にBoldを加える。
 				styles.add("System.Drawing.FontStyle.Bold");
 			}
 
+			// 斜体指定を、他の装飾と併用できるフォントスタイルとして追加する。
 			if (isVbTrue(font.getProperty("Italic"))) {
-				// 斜体指定を、他の装飾と併用できるフォントスタイルとして追加する。
 				styles.add("System.Drawing.FontStyle.Italic");
 			}
 
+			// 下線指定を、出力するフォントスタイルに追加する。
 			if (isVbTrue(font.getProperty("Underline"))) {
-				// 下線指定を、出力するフォントスタイルに追加する。
 				styles.add("System.Drawing.FontStyle.Underline");
 			}
 
+			// 取り消し線指定を、WinFormsのStrikeoutに引き継ぐ。
 			if (isVbTrue(font.getProperty("Strikethrough"))) {
-				// 取り消し線指定を、WinFormsのStrikeoutに引き継ぐ。
 				styles.add("System.Drawing.FontStyle.Strikeout");
 			}
 			String style = styles.isEmpty() ? "System.Drawing.FontStyle.Regular" : String.join(" Or ", styles);
@@ -773,22 +773,22 @@ public final class Vb6WinFormsConverter {
 			+ "), " + style + ", System.Drawing.GraphicsUnit.Point, CByte(" + Math.max(0, Math.min(255, charset)) + "))");
 		}
 
+		// 背景色が指定されている場合だけ、OLE_COLORからの変換を試みる。
 		if (n.hasProperty("BackColor")) {
-			// 背景色が指定されている場合だけ、OLE_COLORからの変換を試みる。
 			String color = toColor(n.getProperty("BackColor"));
 
+			// 変換できた背景色だけを出力し、未対応色による不正な式を生成しない。
 			if (color != null) {
-				// 変換できた背景色だけを出力し、未対応色による不正な式を生成しない。
 				appendPropertyAssignment(out, n, "BackColor", color);
 			}
 		}
 
+		// 文字色が指定されている場合だけ、OLE_COLORからの変換を試みる。
 		if (n.hasProperty("ForeColor")) {
-			// 文字色が指定されている場合だけ、OLE_COLORからの変換を試みる。
 			String color = toColor(n.getProperty("ForeColor"));
 
+			// 変換できた文字色だけを出力し、WinFormsの既定色を不用意に上書きしない。
 			if (color != null) {
-				// 変換できた文字色だけを出力し、WinFormsの既定色を不用意に上書きしない。
 				appendPropertyAssignment(out, n, "ForeColor", color);
 			}
 		}
@@ -803,8 +803,8 @@ public final class Vb6WinFormsConverter {
 				: !parseVbString(n.getProperty("Caption")).isBlank() && !isVbTrue(n.getProperty("WordWrap"));
 				appendPropertyAssignment(out, n, "AutoSize", toVbBooleanLiteral(autoSize));
 
+				// ラベルの配置指定を、WinFormsの文字揃えに変換する。
 				if (n.hasProperty("Alignment")) {
-					// ラベルの配置指定を、WinFormsの文字揃えに変換する。
 					appendPropertyAssignment(out, n, "TextAlign", switch (parseInteger(n.getProperty("Alignment"), 0)) {
 						case 1 -> "System.Drawing.ContentAlignment.MiddleRight";
 						case 2 -> "System.Drawing.ContentAlignment.MiddleCenter";
@@ -814,28 +814,28 @@ public final class Vb6WinFormsConverter {
 			}
 			case "VB.TextBox" -> {
 
+				// TextBoxの初期入力文字列を、VB.NETの文字列式として出力する。
 				if (n.hasProperty("Text")) {
-					// TextBoxの初期入力文字列を、VB.NETの文字列式として出力する。
 					appendPropertyAssignment(out, n, "Text", toVbStringLiteral(parseVbString(n.getProperty("Text"))));
 				}
 
+				// 入力ロック指定をReadOnlyに変換し、元の編集可否を引き継ぐ。
 				if (n.hasProperty("Locked")) {
-					// 入力ロック指定をReadOnlyに変換し、元の編集可否を引き継ぐ。
 					appendPropertyAssignment(out, n, "ReadOnly", toVbBooleanLiteral(isVbTrue(n.getProperty("Locked"))));
 				}
 
+				// 入力文字数の上限が指定されている場合だけ、MaxLengthを設定する。
 				if (n.hasProperty("MaxLength")) {
-					// 入力文字数の上限が指定されている場合だけ、MaxLengthを設定する。
 					appendPropertyAssignment(out, n, "MaxLength", Integer.toString(parseInteger(n.getProperty("MaxLength"), 32767)));
 				}
 
+				// 複数行入力の指定を、WinFormsのMultilineに引き継ぐ。
 				if (n.hasProperty("MultiLine")) {
-					// 複数行入力の指定を、WinFormsのMultilineに引き継ぐ。
 					appendPropertyAssignment(out, n, "Multiline", toVbBooleanLiteral(isVbTrue(n.getProperty("MultiLine"))));
 				}
 
+				// スクロールバーの指定値を、WinFormsの列挙値へ変換する。
 				if (n.hasProperty("ScrollBars")) {
-					// スクロールバーの指定値を、WinFormsの列挙値へ変換する。
 					String bars = switch (parseInteger(n.getProperty("ScrollBars"), 0)) {
 						case 1 -> "Vertical";
 						case 2 -> "Horizontal";
@@ -847,15 +847,15 @@ public final class Vb6WinFormsConverter {
 			}
 			case "VB.CheckBox", "VB.OptionButton" -> {
 
+				// チェック状態の初期値を、CheckBoxまたはOptionButtonのCheckedに引き継ぐ。
 				if (n.hasProperty("Value")) {
-					// チェック状態の初期値を、CheckBoxまたはOptionButtonのCheckedに引き継ぐ。
 					appendPropertyAssignment(out, n, "Checked", toVbBooleanLiteral(isVbTrue(n.getProperty("Value"))));
 				}
 			}
 			case "VB.ComboBox" -> {
 
+				// コンボボックスの入力方式を、WinFormsのDropDownStyleへ変換する。
 				if (n.hasProperty("Style")) {
-					// コンボボックスの入力方式を、WinFormsのDropDownStyleへ変換する。
 					String style = switch (parseInteger(n.getProperty("Style"), 0)) {
 						case 1 -> "Simple";
 						case 2 -> "DropDownList";
@@ -870,8 +870,8 @@ public final class Vb6WinFormsConverter {
 			}
 			case "VB.ListBox" -> {
 
+				// リストの複数選択方式を、WinFormsのSelectionModeへ変換する。
 				if (n.hasProperty("MultiSelect")) {
-					// リストの複数選択方式を、WinFormsのSelectionModeへ変換する。
 					String mode = switch (parseInteger(n.getProperty("MultiSelect"), 0)) {
 						case 1 -> "MultiSimple";
 						case 2 -> "MultiExtended";
@@ -882,8 +882,8 @@ public final class Vb6WinFormsConverter {
 			}
 			case "VB.PictureBox" -> {
 
+				// PictureBoxの枠指定を、WinFormsの枠の有無に変換する。
 				if (n.hasProperty("BorderStyle")) {
-					// PictureBoxの枠指定を、WinFormsの枠の有無に変換する。
 					appendPropertyAssignment(out, n, "BorderStyle",
 					"System.Windows.Forms.BorderStyle." + (parseInteger(n.getProperty("BorderStyle"), 0) == 0 ? "None" : "FixedSingle"));
 				}
@@ -911,20 +911,20 @@ public final class Vb6WinFormsConverter {
 	*/
 	private static String toColor(String raw) {
 
+		// 色の指定がない場合は変換結果を返さず、既定の表示色を維持する。
 		if (raw == null) {
-			// 色の指定がない場合は変換結果を返さず、既定の表示色を維持する。
 			return null;
 		}
 		Matcher m = Pattern.compile("&H([0-9A-Fa-f]{1,8})&?").matcher(raw.trim());
 
+		// 対応する16進OLE_COLOR形式でない値は、生成コードに出力しない。
 		if (!m.find()) {
-			// 対応する16進OLE_COLOR形式でない値は、生成コードに出力しない。
 			return null;
 		}
 		long value = Long.parseUnsignedLong(m.group(1), 16);
 
+		// システム色を示す識別値なら、対応するSystemColorsの式を返す。
 		if ((value & 0xFF000000L) == 0x80000000L) {
-			// システム色を示す識別値なら、対応するSystemColorsの式を返す。
 			return switch ((int) (value & 0xFF)) {
 				case 5 -> "System.Drawing.SystemColors.Window";
 				case 8 -> "System.Drawing.SystemColors.WindowText";
@@ -967,14 +967,14 @@ public final class Vb6WinFormsConverter {
 		appendLine(out, "        Me.components = New System.ComponentModel.Container()");
 		// 先にコントロールの実体をすべて作り、Controls.Addが参照できるようにする。
 
+		// 属性や親子関係の設定より先に、出力対象コントロールの実体を生成する。
 		for (Vb6FormNodeEntity n : s.getAll()) {
-			// 属性や親子関係の設定より先に、出力対象コントロールの実体を生成する。
 
+			// フォーム本体と未対応要素を除き、子コントロールの生成式を出力する。
 			if (n != s.getForm() && n.isSupported()) {
-				// フォーム本体と未対応要素を除き、子コントロールの生成式を出力する。
 
+				// ImageListはフォームのコンポーネント管理に登録し、破棄処理の対象とする。
 				if (n.getWinType().endsWith(".ImageList")) {
-					// ImageListはフォームのコンポーネント管理に登録し、破棄処理の対象とする。
 					appendLine(out, "        Me." + n.getField() + " = New " + n.getWinType() + "(Me.components)");
 				} else {
 					appendLine(out, "        Me." + n.getField() + " = New " + n.getWinType() + "()");
@@ -982,31 +982,31 @@ public final class Vb6WinFormsConverter {
 			}
 		}
 
+		// 各SSTabで必要になるTabPageの生成式を出力する。
 		for (Vb6TabInfoEntity t : s.getTabs().values()) {
-			// 各SSTabで必要になるTabPageの生成式を出力する。
 
+			// タブごとのページ実体を、コントロール追加より先に生成する。
 			for (Vb6FormNodeEntity p : t.getPages()) {
-				// タブごとのページ実体を、コントロール追加より先に生成する。
 				appendLine(out, "        Me." + p.getField() + " = New System.Windows.Forms.TabPage()");
 			}
 		}
 		appendLine(out, "        Me.SuspendLayout()");
 		// 次に位置・サイズ・表示文字などの基本属性を設定する。
 
+		// 生成済みコントロールに位置・サイズ・表示属性を順番に設定する。
 		for (Vb6FormNodeEntity n : s.getAll()) {
-			// 生成済みコントロールに位置・サイズ・表示属性を順番に設定する。
 
+			// フォーム本体以外の対応済みコントロールだけに、個別の属性を出力する。
 			if (n.isSupported() && n != s.getForm()) {
-				// フォーム本体以外の対応済みコントロールだけに、個別の属性を出力する。
 				appendControlProperties(out, n, s);
 			}
 		}
 
+		// SSTabごとにページ見出しと、タブ本体の表示設定を出力する。
 		for (Vb6TabInfoEntity ti : s.getTabs().values()) {
-			// SSTabごとにページ見出しと、タブ本体の表示設定を出力する。
 
+			// 各TabPageに識別名・見出し文字・背景表示を設定する。
 			for (Vb6FormNodeEntity page : ti.getPages()) {
-				// 各TabPageに識別名・見出し文字・背景表示を設定する。
 				int i = page.getTabIndex();
 				appendPropertyAssignment(out, page, "Name", toVbStringLiteral(page.getField()));
 				appendPropertyAssignment(out, page, "Text", toVbStringLiteral(parseVbString(ti.getTab().getProperty("TabCaption(" + i + ")"))));
@@ -1018,30 +1018,30 @@ public final class Vb6WinFormsConverter {
 		}
 		// ネストしたFrame等への追加と、SSTab直下のTabPageへの追加を行う。
 
+		// フォーム直下以外のコントロールを、対応するコンテナに追加する。
 		for (Vb6FormNodeEntity n : s.getAll()) {
-			// フォーム直下以外のコントロールを、対応するコンテナに追加する。
 
+			// フォーム直下の要素や画面に配置しない要素を、ネスト追加処理から除外する。
 			if (n == s.getForm() || n.getParent() == s.getForm() || !n.isSupported() || isNonVisual(n)) {
-				// フォーム直下の要素や画面に配置しない要素を、ネスト追加処理から除外する。
 				continue;
 			}
 
+			// SSTab直下の子は、所属を解決したTabPageのControlsに追加する。
 			if (s.getTabs().containsKey(n.getParent())) {
-				// SSTab直下の子は、所属を解決したTabPageのControlsに追加する。
 				// Tab pages may be omitted if a tab control is skipped in the future.
 				appendLine(out, "        Me." + n.getResolvedParent() + ".Controls.Add(Me." + n.getField() + ")");
 
+			// 対応する通常コンテナが親なら、そのControlsに追加して階層を保持する。
 			} else if (n.getParent() != null && n.getParent().isSupported()) {
-				// 対応する通常コンテナが親なら、そのControlsに追加して階層を保持する。
 				appendLine(out, "        Me." + n.getParent().getField() + ".Controls.Add(Me." + n.getField() + ")");
 			}
 		}
 
+		// 生成済みのTabPageを、それぞれのTabControlへ登録する。
 		for (Vb6TabInfoEntity ti : s.getTabs().values()) {
-			// 生成済みのTabPageを、それぞれのTabControlへ登録する。
 
+			// ページの並び順を保って、TabPagesへの追加式を出力する。
 			for (Vb6FormNodeEntity page : ti.getPages()) {
-				// ページの並び順を保って、TabPagesへの追加式を出力する。
 				appendLine(out, "        Me." + ti.getTab().getField() + ".TabPages.Add(Me." + page.getField() + ")");
 			}
 		}
@@ -1052,8 +1052,8 @@ public final class Vb6WinFormsConverter {
 		+ toPixels(parseInteger(s.getForm().getProperty("ClientHeight"), 0), s.getDpi()) + ")");
 		appendPropertyAssignment(out, s.getForm(), "Text", toVbStringLiteral(parseVbString(s.getForm().getProperty("Caption"))));
 
+		// フォームの枠形式が指定されている場合だけ、FormBorderStyleに変換する。
 		if (s.getForm().hasProperty("BorderStyle")) {
-			// フォームの枠形式が指定されている場合だけ、FormBorderStyleに変換する。
 			String border = switch (parseInteger(s.getForm().getProperty("BorderStyle"), 2)) {
 				case 0 -> "None";
 				case 1 -> "FixedSingle";
@@ -1065,18 +1065,18 @@ public final class Vb6WinFormsConverter {
 			appendPropertyAssignment(out, s.getForm(), "FormBorderStyle", "System.Windows.Forms.FormBorderStyle." + border);
 		}
 
+		// 最大化ボタンの有無を、フォームのMaximizeBoxへ引き継ぐ。
 		if (s.getForm().hasProperty("MaxButton")) {
-			// 最大化ボタンの有無を、フォームのMaximizeBoxへ引き継ぐ。
 			appendPropertyAssignment(out, s.getForm(), "MaximizeBox", toVbBooleanLiteral(isVbTrue(s.getForm().getProperty("MaxButton"))));
 		}
 
+		// 最小化ボタンの有無を、フォームのMinimizeBoxへ引き継ぐ。
 		if (s.getForm().hasProperty("MinButton")) {
-			// 最小化ボタンの有無を、フォームのMinimizeBoxへ引き継ぐ。
 			appendPropertyAssignment(out, s.getForm(), "MinimizeBox", toVbBooleanLiteral(isVbTrue(s.getForm().getProperty("MinButton"))));
 		}
 
+		// 起動時の配置方式を、WinFormsのStartPositionへ変換する。
 		if (s.getForm().hasProperty("StartUpPosition")) {
-			// 起動時の配置方式を、WinFormsのStartPositionへ変換する。
 			String start = switch (parseInteger(s.getForm().getProperty("StartUpPosition"), 0)) {
 				case 1 -> "CenterParent";
 				case 2 -> "CenterScreen";
@@ -1087,11 +1087,11 @@ public final class Vb6WinFormsConverter {
 			appendPropertyAssignment(out, s.getForm(), "StartPosition", "System.Windows.Forms.FormStartPosition." + start);
 		}
 
+		// フォーム直下の子を調べ、ルートのControlsへの追加式を生成する。
 		for (Vb6FormNodeEntity child : s.getForm().getChildren()) {
-			// フォーム直下の子を調べ、ルートのControlsへの追加式を生成する。
 
+			// 対応済みの表示コントロールだけを、フォーム直下のControlsに追加する。
 			if (child.isSupported() && !isNonVisual(child)) {
-				// 対応済みの表示コントロールだけを、フォーム直下のControlsに追加する。
 				appendLine(out, "        Me.Controls.Add(Me." + child.getField() + ")");
 			}
 		}
@@ -1099,20 +1099,20 @@ public final class Vb6WinFormsConverter {
 		appendLine(out, "    End Sub");
 		appendLine(out, "");
 
+		// 生成対象コントロールを、コードビハインドから参照するフィールドとして宣言する。
 		for (Vb6FormNodeEntity n : s.getAll()) {
-			// 生成対象コントロールを、コードビハインドから参照するフィールドとして宣言する。
 
+			// フォーム本体と未対応要素を除き、WithEvents付きのフィールドを出力する。
 			if (n != s.getForm() && n.isSupported()) {
-				// フォーム本体と未対応要素を除き、WithEvents付きのフィールドを出力する。
 				appendLine(out, "    Friend WithEvents " + n.getField() + " As " + n.getWinType());
 			}
 		}
 
+		// 自動生成したTabPageについても、参照用フィールドを宣言する。
 		for (Vb6TabInfoEntity t : s.getTabs().values()) {
-			// 自動生成したTabPageについても、参照用フィールドを宣言する。
 
+			// 各ページのフィールド名と型を、クラス末尾の宣言に出力する。
 			for (Vb6FormNodeEntity p : t.getPages()) {
-				// 各ページのフィールド名と型を、クラス末尾の宣言に出力する。
 				appendLine(out, "    Friend WithEvents " + p.getField() + " As " + p.getWinType());
 			}
 		}
@@ -1152,8 +1152,8 @@ public final class Vb6WinFormsConverter {
 		StringBuilder b = new StringBuilder();
 		appendLine(b, "VB6Type,VB6Name,WinFormsType,WinFormsField,VB6Parent,WinFormsParent,TabIndex,LeftTwips,TopTwips,WidthTwips,HeightTwips,PixelX,PixelY,PixelWidth,PixelHeight,Output");
 
+		// 各ノードの変換前後の座標と親子関係を、一件ずつ監査CSVに記録する。
 		for (Vb6FormNodeEntity n : s.getAll()) {
-			// 各ノードの変換前後の座標と親子関係を、一件ずつ監査CSVに記録する。
 			String parent = n.getParent() == null ? "" : n.getParent().getId();
 			String resolved = n.getResolvedParent().isEmpty() ? (n.getParent() == null ? "" : n.getParent().getField()) : n.getResolvedParent();
 			String[] v = {
@@ -1195,13 +1195,13 @@ public final class Vb6WinFormsConverter {
 		appendLine(b, "");
 		appendLine(b, "=== 警告 ===");
 
+		// 警告が一件もない場合は、空欄ではなく「なし」と明示する。
 		if (s.getWarnings().isEmpty()) {
-			// 警告が一件もない場合は、空欄ではなく「なし」と明示する。
 			appendLine(b, "なし");
 		}
 
+		// 収集済みの警告を登録順に出力し、未対応事項や推定配置を確認できるようにする。
 		for (String warn : s.getWarnings()) {
-			// 収集済みの警告を登録順に出力し、未対応事項や推定配置を確認できるようにする。
 			appendLine(b, warn);
 		}
 		appendLine(b, "");

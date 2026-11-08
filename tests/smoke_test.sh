@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Java 21ビルドと基本的なVB6フォーム変換を検査する（外部ライブラリ不要）。
+# Java 21ビルドと基本的なVB6フォーム変換を検査する（コンパイル時は同梱Lombokを使用）。
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
 bash build.sh
+# Lombokを実行時クラスパスに含めず、循環参照・同一性・生成アクセサも検証する。
+java -ea -cp bin tests/EntityBehaviorTest.java
 work_dir="$(mktemp -d)"
 trap 'rm -rf "$work_dir"' EXIT
 
