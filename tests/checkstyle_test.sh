@@ -52,4 +52,18 @@ for rule in TypeName MemberName ParameterName MethodName AvoidStarImport \
 done
 # 内部・ローカル・匿名クラスの3種類すべてを検出する。
 test "$(grep -c '\.MatchXpathCheck' "$work_dir/bad.xml")" -eq 3
+
+# 命名等の違反と分離し、スペース・混在を検出しタブを許容することを確認する。
+printf 'class TabsOnly {\n\tint value;\n}\n' > "$work_dir/TabsOnly.java"
+printf 'class Spaces {\n    int value;\n}\n' > "$work_dir/Spaces.java"
+printf 'class Mixed {\n\t int value;\n}\n' > "$work_dir/Mixed.java"
+lint -o "$work_dir/tabs.xml" "$work_dir/TabsOnly.java"
+if grep -q '\.RegexpSinglelineCheck' "$work_dir/tabs.xml"; then
+    cat "$work_dir/tabs.xml"
+    exit 1
+fi
+for fixture in Spaces Mixed; do
+    lint -o "$work_dir/$fixture.xml" "$work_dir/$fixture.java"
+    grep -q '\.RegexpSinglelineCheck' "$work_dir/$fixture.xml"
+done
 printf 'Checkstyle test passed (sources clean; invalid fixture detected).\n'

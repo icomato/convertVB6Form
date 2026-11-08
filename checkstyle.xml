@@ -8,6 +8,11 @@
     <property name="severity" value="warning"/>
     <property name="fileExtensions" value="java"/>
     <module name="NewlineAtEndOfFile"/>
+    <!-- 行頭のインデントはタブのみ。コメント行・継続行も対象。 -->
+    <module name="RegexpSingleline">
+        <property name="format" value="^\t* +"/>
+        <property name="message" value="インデントにスペースを使用せず、タブのみを使用してください。"/>
+    </module>
     <module name="TreeWalker">
         <module name="PackageName"/>
         <module name="TypeName"/>
