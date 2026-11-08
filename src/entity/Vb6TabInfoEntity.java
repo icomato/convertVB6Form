@@ -11,7 +11,9 @@ import java.util.Map;
 /**
 * VB6のSSTabからTabControl/TabPageへの変換に必要な情報を保持する。
 *
-* <p>タブ数と見出しの高さ、Tab(n).Control(m)で指定された明示所属、生成するTabPageを管理する。所属推定は変換本体が行う。
+* <p>タブ数と見出しの高さ、Tab(n).Control(m)で指定された明示所属、
+* 生成するTabPageを管理する。
+* 所属推定は変換本体が行う。
 *
 * @author convertVB6Form contributors
 * @version 1.0 (Javaコーディング規約対応)

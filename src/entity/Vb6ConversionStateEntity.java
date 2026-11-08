@@ -14,7 +14,9 @@ import java.util.Set;
 /**
 * 1つのVB6フォームに対する変換処理で共有する解析・変換状態。
 *
-* <p>解析したコントロール、識別子の重複管理、SSTab情報、DPI、警告と集計値を集約する。状態はフォーム単位で作成し、静的なグローバル状態を持たない。
+* <p>解析したコントロール、識別子の重複管理、SSTab情報、DPI、
+* 警告と集計値を集約する。
+* 状態はフォーム単位で作成し、静的なグローバル状態を持たない。
 *
 * @author convertVB6Form contributors
 * @version 1.0 (Javaコーディング規約対応)
@@ -35,7 +37,10 @@ public final class Vb6ConversionStateEntity {
 	private final Map<Vb6FormNodeEntity, Vb6TabInfoEntity> tabs = new IdentityHashMap<>();
 	/** 生成済みフィールド名の集合。 */
 	private final Set<String> usedFields = new HashSet<>();
-	/** 座標変換に使用するDPI。初期値は96。 */
+	/**
+	* 座標変換に使用するDPI。
+	* 初期値は96。
+	*/
 	private double dpi = 96.0;
 	/** タブ所属を推定した件数。 */
 	private int unknownTabCount;
@@ -48,7 +53,10 @@ public final class Vb6ConversionStateEntity {
 	/** 出力するVB.NETフォームのクラス名。 */
 	@ToString.Include
 	private String className;
-	/** 元フォームに含まれるVB6コード。参考保存用で実行コードには変換しない。 */
+	/**
+	* 元フォームに含まれるVB6コード。
+	* 参考保存用で実行コードには変換しない。
+	*/
 	private String vb6Code = "";
 
 	/**

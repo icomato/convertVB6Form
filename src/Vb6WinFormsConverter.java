@@ -68,10 +68,13 @@ public final class Vb6WinFormsConverter {
 
 	/**
 	* VB6フォームを読み込んでVB.NET WinFormsのデザイナーと検証用資料を生成する。
-	* 使用方法: java -cp bin Vb6WinFormsConverter input.frm output_dir [dpi]。既存のコードビハインドは上書きしない。
+	* 使用方法: java -cp bin Vb6WinFormsConverter input.frm output_dir [dpi]。
+	* 既存のコードビハインドは上書きしない。
 	* @param args 入力.frm、出力ディレクトリ、省略可能なDPI（既定値96）
-	* @throws IllegalArgumentException DPIが数値でないか、48～768の有限値でない場合
-	* @throws IOException .frmの読み込み、解析、または出力ファイル作成に失敗した場合
+	* @throws IllegalArgumentException DPIが数値でないか、
+	* 48～768の有限値でない場合
+	* @throws IOException .frmの読み込み、解析、
+	* または出力ファイル作成に失敗した場合
 	*/
 	public static void main(String[] args) throws IOException {
 
@@ -200,11 +203,14 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* .frmをWindows-31Jで読み、Begin/Endをスタックで解釈してノードツリーを構築する。
-	* BeginPropertyは親コントロールの属性とし、Attribute VB_Name以降はVB6コード部として保存する。
+	* .frmをWindows-31Jで読み、
+	* Begin/Endをスタックで解釈してノードツリーを構築する。
+	* BeginPropertyは親コントロールの属性とし、
+	* Attribute VB_Name以降はVB6コード部として保存する。
 	* @param source 入力.frmのパス
 	* @return コントロール階層と元コードを含む解析状態
-	* @throws IOException 読み込みに失敗、またはBegin/Endが不整合の場合
+	* @throws IOException 読み込みに失敗、
+	* またはBegin/Endが不整合の場合
 	*/
 	private static Vb6ConversionStateEntity parseForm(Path source) throws IOException {
 		Vb6ConversionStateEntity s = new Vb6ConversionStateEntity();
@@ -303,7 +309,8 @@ public final class Vb6WinFormsConverter {
 
 	/**
 	* コントロール名・WinForms型・座標・親子関係を解決する。
-	* SSTabでは明示的なTab(n).Controlと兄弟要素から所属を決め、非表示タブ用の負座標とTabHeightを補正する。
+	* SSTabでは明示的なTab(n).Controlと兄弟要素から所属を決め、
+	* 非表示タブ用の負座標とTabHeightを補正する。
 	* @param s 更新する解析・変換状態
 	*/
 	private static void resolveLayout(Vb6ConversionStateEntity s) {
@@ -539,7 +546,8 @@ public final class Vb6WinFormsConverter {
 	* VB6のコントロール型をWinFormsの完全修飾クラス名へ割り当てる。
 	* COM固有の処理は移行しない。
 	* @param type VB6型名
-	* @return WinForms型名。非対応ならnull
+	* @return WinForms型名。
+	* 非対応ならnull
 	*/
 	private static String toWinFormsControlType(String type) {
 		return switch (type) {
@@ -566,7 +574,8 @@ public final class Vb6WinFormsConverter {
 
 	/**
 	* 数値プロパティを読み取り、末尾のVB6コメントを取り除く。
-	* @param value 属性値。未設定ならnull
+	* @param value 属性値。
+	* 未設定ならnull
 	* @param fallback 解析失敗時の既定値
 	* @return 数値化した属性値
 	*/
@@ -584,7 +593,8 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* Twipsを指定DPIに対応するピクセルへ換算する。1inch=1440Twips。
+	* Twipsを指定DPIに対応するピクセルへ換算する。
+	* 1inch=1440Twips。
 	* @param twips 元座標またはサイズ
 	* @param dpi 変換先のDPI
 	* @return 四捨五入したピクセル値
@@ -596,7 +606,8 @@ public final class Vb6WinFormsConverter {
 	/**
 	* VB6文字列リテラルを取り出し、二重の引用符を元に戻す。
 	* @param vbValue .frmの元の値
-	* @return デコードした文字列。nullの場合は空文字列
+	* @return デコードした文字列。
+	* nullの場合は空文字列
 	*/
 	private static String parseVbString(String vbValue) {
 
@@ -934,9 +945,11 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* VB6のOLE_COLORをSystem.Drawing.Colorの式へ変換する。通常色はBGR、システム色は一部対応。
+	* VB6のOLE_COLORをSystem.Drawing.Colorの式へ変換する。
+	* 通常色はBGR、システム色は一部対応。
 	* @param raw VB6の色コード
-	* @return WinForms色の式。変換できなければnull
+	* @return WinForms色の式。
+	* 変換できなければnull
 	*/
 	private static String toColor(String raw) {
 
@@ -968,7 +981,8 @@ public final class Vb6WinFormsConverter {
 
 	/**
 	* WinFormsのDesigner.vbを生成する。
-	* コントロール生成、プロパティ設定、TabPageと親子関係の割当、フィールド宣言を順に行う。
+	* コントロール生成、プロパティ設定、TabPageと親子関係の割当、
+	* フィールド宣言を順に行う。
 	* @param s 解決済み変換状態
 	* @return Designer.vb全文
 	*/
@@ -1150,7 +1164,8 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* VB6コードから単純なPublicフィールドのみを抽出する。イベントや業務ロジックは移植しない。
+	* VB6コードから単純なPublicフィールドのみを抽出する。
+	* イベントや業務ロジックは移植しない。
 	* @param code 元VB6コード
 	* @return VB.NETのPublicフィールド宣言
 	*/

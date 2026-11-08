@@ -12,7 +12,10 @@ import java.util.Map;
 /**
 * VB6フォーム定義に含まれるコントロールまたはBeginPropertyの解析結果を保持する。
 *
-* <p>親子階層と属性、元のTwips座標、WinForms向けPixel座標を別々に記録する。タブ所属と親コンテナは変換時に解決される。変換処理から参照するentityパッケージのデータ保持クラス。
+* <p>親子階層と属性、元のTwips座標、
+* WinForms向けPixel座標を別々に記録する。
+* タブ所属と親コンテナは変換時に解決される。
+* 変換処理から参照するentityパッケージのデータ保持クラス。
 *
 * @author convertVB6Form contributors
 * @version 1.0 (Javaコーディング規約対応)
@@ -21,14 +24,20 @@ import java.util.Map;
 @Data
 @ToString(onlyExplicitlyIncluded = true)
 public final class Vb6FormNodeEntity {
-	/** 要素の種別。controlまたはproperty。 */
+	/**
+	* 要素の種別。
+	* controlまたはproperty。
+	*/
 	private String kind; // control, property
 	/** 元のVB6型名と要素名。 */
 	private String vbType;
 	/** VB6でのコントロール名。 */
 	@ToString.Include
 	private String name;
-	/** VB6定義における親ノード。フォームの場合はnull。 */
+	/**
+	* VB6定義における親ノード。
+	* フォームの場合はnull。
+	*/
 	private Vb6FormNodeEntity parent;
 	/** 子コントロールの一覧。 */
 	private final List<Vb6FormNodeEntity> children = new ArrayList<>();
@@ -44,7 +53,10 @@ public final class Vb6FormNodeEntity {
 	private String winType;
 	/** タブを考慮して解決した親コンテナ名。 */
 	private String resolvedParent = "";
-	/** タブ番号。タブに所属しない場合は-1。 */
+	/**
+	* タブ番号。
+	* タブに所属しない場合は-1。
+	*/
 	private int tabIndex = -1;
 	/** VB6の元座標とサイズ（Twips）。 */
 	private int leftTwips;
@@ -68,9 +80,11 @@ public final class Vb6FormNodeEntity {
 	/**
 	* フォーム定義の1要素を作成する。
 	* @param kind 要素種別（control/property）
-	* @param type VB6コントロール型。propertyの場合は空文字
+	* @param type VB6コントロール型。
+	* propertyの場合は空文字
 	* @param name VB6での名称
-	* @param parent 親ノード。最上位の場合はnull
+	* @param parent 親ノード。
+	* 最上位の場合はnull
 	*/
 	public Vb6FormNodeEntity(String kind, String type, String name, Vb6FormNodeEntity parent) {
 		this.kind = kind;
@@ -82,7 +96,8 @@ public final class Vb6FormNodeEntity {
 	/**
 	* VB6の属性値を取得する。
 	* @param key 属性名
-	* @return 属性値。未設定ならnull
+	* @return 属性値。
+	* 未設定ならnull
 	*/
 	public String getProperty(String key) {
 		return props.get(key);
