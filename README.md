@@ -219,6 +219,17 @@ javadoc -private -classpath lib/lombok-1.18.48.jar -Xdoclint:all,-missing -encod
 
 ## Javaで変換する
 
+引数を省略すると、**実行時の作業フォルダ**を基準に`sample/`直下の`.frm`ファイルを探し、`output/`へ変換します。
+拡張子は大文字小文字を区別せず、サブフォルダは探索しません。EclipseではRun Configurationsの**Working directory**をプロジェクトフォルダに設定してください。
+
+```bash
+java -cp bin Vb6WinFormsConverter
+```
+
+`sample/`がない場合、対象の`.frm`がない場合、または候補が複数ある場合は、理由と**HowTo**を標準エラーへ表示し、終了コード2で終了します。
+引数なしで使うには、手元のVB6フォームを`sample/`直下に1件配置してください。公開リポジトリの`sample/`には生成済みVB.NETのサンプルだけがあり、元の`.frm`は含みません。
+複数のフォームがある場合や出力先・DPIを変える場合は、従来どおり入力・出力・任意のDPIを引数で指定します。
+
 Java 21 以上の実行環境で、src配下の全Javaファイルをコンパイルして実行します（ビルド成果物はリポジトリには含めません）。
 
 ```bash

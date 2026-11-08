@@ -60,4 +60,43 @@ grep -Fq 'Me.Label1.Text = "Hello"' \
 test -s "$work_dir/output/Basic_coordinate_audit.csv"
 test -s "$work_dir/output/Basic_migration_report.txt"
 
+# 実行フォルダ基準の相対パスでsampleを探し、HowToと終了コードを確認する。
+classes_dir="$(pwd)/bin"
+mkdir -p "$work_dir/default-run"
+run_default() {
+    (
+        cd "$work_dir/default-run"
+        java -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 \
+            -cp "$classes_dir" Vb6WinFormsConverter "$@"
+    ) >"$work_dir/default-stdout.txt" 2>"$work_dir/default-stderr.txt"
+}
+expect_howto() {
+    if run_default "$@"; then
+        printf 'Expected HowTo error.\n' >&2
+        exit 1
+    else
+        test "$?" -eq 2
+    fi
+    test ! -s "$work_dir/default-stdout.txt"
+    grep -Fq 'HowTo ERROR:' "$work_dir/default-stderr.txt"
+    grep -Fq 'java -cp bin Vb6WinFormsConverter' "$work_dir/default-stderr.txt"
+    if grep -Fq 'Exception' "$work_dir/default-stderr.txt"; then
+        cat "$work_dir/default-stderr.txt"
+        exit 1
+    fi
+}
+expect_howto
+test ! -e "$work_dir/default-run/output"
+mkdir -p "$work_dir/default-run/sample/ignored.frm"
+printf 'not a form\n' > "$work_dir/default-run/sample/readme.txt"
+expect_howto
+test ! -e "$work_dir/default-run/output"
+cp "$work_dir/Basic.frm" "$work_dir/default-run/sample/Basic.FRM"
+run_default
+test ! -s "$work_dir/default-stderr.txt"
+test -s "$work_dir/default-run/output/Basic_Migrated.slnx"
+cp "$work_dir/Basic.frm" "$work_dir/default-run/sample/Other.frm"
+expect_howto
+expect_howto only-one-argument
+
 printf 'Smoke test passed.\n'
