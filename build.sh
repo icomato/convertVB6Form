@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Build the Eclipse Java project with JDK 17+.
-# Explicit UTF-8 prevents Japanese comments/strings from failing on ASCII locales.
+# EclipseのJavaプロジェクト内にある全ソースファイルをビルドする。
+# 日本語のJavadocと文字列があるため、UTF-8を明示してコンパイルする。
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
 if ! command -v javac >/dev/null 2>&1; then
@@ -11,5 +11,5 @@ if ! command -v javac >/dev/null 2>&1; then
 fi
 
 mkdir -p bin
-javac -encoding UTF-8 --release 17 -d bin src/Vb6WinFormsConverter.java
+javac -encoding UTF-8 --release 17 -d bin src/*.java
 printf 'Build completed: bin/Vb6WinFormsConverter.class\n'

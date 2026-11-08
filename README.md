@@ -24,9 +24,29 @@
 
 出力する `bin/` と `output/` はGit管理の対象外です。Eclipseの自動ビルドでも `bin/` にクラスファイルが生成されます。EclipseにJRE System Libraryのエラーが出る場合は、**Window → Preferences → Java → Installed JREs** でJava 17 JDKを追加・選択してください。
 
+## Javaソースの構成とJavadoc
+
+ソースコードは **1ファイル1クラス** で構成し、内部クラスは使用していません。Java 17の標準APIのみで動作し、Eclipseからもそのまま編集できます。
+
+| ファイル | 担当処理 |
+| --- | --- |
+| `Vb6WinFormsConverter.java` | .frm解析、Twips座標の変換、SSTabの補正、VB.NETファイル・監査資料の出力 |
+| `Vb6FormNode.java` | コントロール階層、属性、Twips・Pixel座標の保持 |
+| `Vb6TabInfo.java` | SSTabのタブ枚数、子コントロールの所属、TabPageの管理 |
+| `Vb6ConversionState.java` | 入力フォームの変換状態、警告、出力件数の管理 |
+
+各クラス、メソッド、主要フィールドに日本語のJavadocを記載しています。JDKの`javadoc`コマンドでHTMLリファレンスを生成できます。
+
+```bash
+javadoc -encoding UTF-8 -charset UTF-8 -docencoding UTF-8 \
+  -d docs/api src/*.java
+```
+
+生成物の`docs/api/`はGitの管理対象から除外しています。
+
 ## Javaで変換する
 
-Java 17 以上の実行環境で、ソースをコンパイルして実行します（ビルド成果物はリポジトリには含めません）。
+Java 17 以上の実行環境で、src配下の全Javaファイルをコンパイルして実行します（ビルド成果物はリポジトリには含めません）。
 
 ```bash
 # 文字コードを明示してbinへコンパイル（Termux / Ubuntuでも利用可能）
@@ -40,7 +60,7 @@ java -Dfile.encoding=UTF-8 -cp bin Vb6WinFormsConverter ReportWindowCoorsDummy.f
 
 ```bash
 mkdir -p bin
-javac -encoding UTF-8 --release 17 -d bin src/Vb6WinFormsConverter.java
+javac -encoding UTF-8 --release 17 -d bin src/*.java
 ```
 
 **重要:** このJavaソースには日本語のコメントや文字列が含まれます。環境によって `javac` の既定文字コードが `US-ASCII` になり、`unmappable character for encoding US-ASCII` が発生します。ソースを削除・変更せず、上記のように `-encoding UTF-8` を指定してください。
@@ -107,7 +127,10 @@ Windows Forms の `WebBrowser` は旧式のブラウザコンポーネントな�
 
 ## リポジトリのファイル
 
-- `src/Vb6WinFormsConverter.java`: Java 17 ソースコード（Eclipseのsrcフォルダ）
+- `src/Vb6WinFormsConverter.java`：変換処理本体・VB.NETコード生成
+- `src/Vb6FormNode.java`：VB6コントロールと座標・親子関係の保持
+- `src/Vb6TabInfo.java`：SSTabのタブ所属とTabPageの管理
+- `src/Vb6ConversionState.java`：フォーム単位の変換情報・警告と件数の管理
 - `sample/`: 添付されたダミーフォームから生成した .NET 8 WinForms のサンプルとレポート
 - 元の `.frm` や `.frx` は公開リポジトリに含めません。各自のローカルファイルを指定してください。
 - 生成した `Designer.vb` は Windows 上でのビルド・デザイナー表示を確認してから本番利用してください。

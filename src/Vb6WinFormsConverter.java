@@ -22,80 +22,49 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * VB6 .frm designer -> VB.NET WinForms .Designer.vb conversion.
- * Java 17. No external dependencies. This tool migrates visual layout,
- * not VB6 event handlers or COM component behavior.
+ * VB6フォームの.frmからVB.NET Windows Formsの画面定義を生成するJava 17ツール。
+ *
+ * <p>Windows-31Jで読み込み、Twipsを指定DPIのPixelへ換算する。
+ * SSTabはTabControl/TabPageへ変換し、Frameの親子関係を引き継ぐ。
+ * 生成したDesigner.vbとともに監査CSVと未移行項目のレポートを出力する。
+ *
+ * <p>イベントハンドラー、業務ロジック、COMの動作、.frx画像の移行には対応しない。
+ * 推定した配置や対応しない要素は、必ず出力結果と警告を確認すること。
+ *
+ * @see Vb6FormNode
+ * @see Vb6TabInfo
+ * @see Vb6ConversionState
  */
 public final class Vb6WinFormsConverter {
     // VB6の日本語.frmをWindows-31Jで読み取る。生成ファイルはUTF-8で出力する。
+    /** VB6フォームの読み込みに使用するWindows-31J文字コード。 */
     private static final Charset VB6_CHARSET = Charset.forName("windows-31j");
     // .frmのBegin/Endでコントロール階層を、BeginProperty/EndPropertyでFont等の属性を認識する。
+    /** コントロールBegin行の解析用正規表現。 */
     private static final Pattern BEGIN = Pattern.compile("^\\s*Begin\\s+([\\w.]+)\\s+([^\\s]+)\\s*$");
+    /** BeginProperty行の解析用正規表現。 */
     private static final Pattern BEGIN_PROPERTY = Pattern.compile("^\\s*BeginProperty\\s+(\\S+)(?:\\s+.*)?$");
+    /** プロパティ代入行の解析用正規表現。 */
     private static final Pattern PROPERTY = Pattern.compile("^\\s*([^=]+?)\\s*=\\s*(.*?)\\s*$");
     // SSTab固有の「Tab(n).Control(m)」形式から子要素の所属タブを抽出する。
+    /** SSTabのTab(n).Control(m)を認識する正規表現。 */
     private static final Pattern TAB_CONTROL = Pattern.compile("Tab\\((\\d+)\\)\\.Control\\((\\d+)\\)", Pattern.CASE_INSENSITIVE);
+    /** SSTabのTabCaption(n)を認識する正規表現。 */
     private static final Pattern TAB_CAPTION = Pattern.compile("TabCaption\\((\\d+)\\)", Pattern.CASE_INSENSITIVE);
     // 非選択タブのコントロールが、左方向へ75000Twips移動して保存されるケースを補正する。
+    /** SSTabが非表示タブを退避させる際に用いるTwipsオフセット。 */
     private static final long SSTAB_HIDE_TWIPS = 75000L;
 
-    /**
-     * .frm内のコントロールまたはBeginPropertyを表す中間ノード。
-     * 元のTwips座標と変換後のPixel座標を両方持ち、監査CSVに記録できるようにする。
-     */
-    static class Node {
-        String kind; // control, property
-        String vbType, name;
-        Node parent;
-        final List<Node> children = new ArrayList<>();
-        final Map<String, String> props = new LinkedHashMap<>();
-        final Map<String, Node> nested = new HashMap<>();
-        String id, field, winType, resolvedParent = "";
-        int tabIndex = -1;
-        int leftTwips, topTwips, widthTwips, heightTwips;
-        int pixelLeft, pixelTop, pixelWidth, pixelHeight;
-        boolean supported = true;
-        Node(String kind, String type, String name, Node parent) {
-            this.kind = kind; this.vbType = type; this.name = name; this.parent = parent;
-        }
-        String prop(String key) { return props.get(key); }
-        boolean has(String key) { return props.containsKey(key); }
-    }
-    /** SSTabの枚数・見出し高さ・タブ所属情報・生成予定のTabPageを保持する。 */
-    static class TabInfo {
-        Node tab;
-        int count;
-        int tabHeightTwips;
-        final Map<String, Integer> assignments = new HashMap<>();
-        final List<Node> pages = new ArrayList<>();
-    }
-    /**
-     * 1フォームの解析結果、コントロール名管理、変換時の警告をまとめた状態。
-     * 配置を推定した要素はwarningsに残して手動確認できるようにする。
-     */
-    static class State {
-        Node form;
-        final List<Node> all = new ArrayList<>();
-        final List<String> warnings = new ArrayList<>();
-        final Map<String, Node> byId = new LinkedHashMap<>();
-        final Map<Node, TabInfo> tabs = new IdentityHashMap<>();
-        final Set<String> usedFields = new HashSet<>();
-        double dpi = 96.0;
-        int unknownTabCount;
-        int remappedTabCount;
-        int visualCount;
-        int ignoredCount;
-        String className;
-        String vb6Code = "";
-        void warn(String s) { warnings.add("WARN: " + s); }
-    }
 
+    /**
+     * インスタンス化を禁止するユーティリティクラスのコンストラクタ。
+     */
     private Vb6WinFormsConverter() { }
     /**
-     * コマンドラインの実行入口。入力.frmからVB.NETのWinFormsプロジェクト一式を生成する。
-     *
-     * @param args 入力.frm、出力ディレクトリ、任意のDPI（省略時96）
-     * @throws Exception 入出力エラーまたは不正な.frm定義を検出した場合
+     * VB6フォームを読み込んでVB.NET WinFormsのデザイナーと検証用資料を生成する。
+     * 使用方法: java -cp bin Vb6WinFormsConverter input.frm output_dir [dpi]。既存のコードビハインドは上書きしない。
+     * @param args 入力.frm、出力ディレクトリ、省略可能なDPI（既定値96）
+     * @throws Exception 引数、入出力またはフォーム定義の解析に失敗した場合
      */
     public static void main(String[] args) throws Exception {
         if (args.length < 2 || args.length > 3) {
@@ -109,7 +78,7 @@ public final class Vb6WinFormsConverter {
         if (!(dpi >= 48.0 && dpi <= 768.0) || !Double.isFinite(dpi))
             throw new IllegalArgumentException("DPIは48～768を指定してください");
         // ステップ1: .frm解析 → ステップ2: コントロールの種類と配置を確定する。
-        State st = parse(source);
+        Vb6ConversionState st = parse(source);
         st.dpi = dpi;
         prepare(st);
         // 入力ファイルは変更せず、出力先ディレクトリへ生成する。
@@ -178,18 +147,18 @@ public final class Vb6WinFormsConverter {
     }
 
     /**
-     * VB6フォーム定義部を読み込み、スタックでBegin/Endを対応付けて階層化する。
-     * Attribute VB_Name以降のVB6コードは別途保存し、ここでは解釈しない。
-     *
-     * @param source .frmファイルのパス
-     * @return 構築したフォーム構造と未変換コード
+     * .frmをWindows-31Jで読み、Begin/Endをスタックで解釈してノードツリーを構築する。
+     * BeginPropertyは親コントロールの属性とし、Attribute VB_Name以降はVB6コード部として保存する。
+     * @param source 入力.frmのパス
+     * @return コントロール階層と元コードを含む解析状態
+     * @throws IOException 読み込みに失敗、またはBegin/Endが不整合の場合
      */
-    private static State parse(Path source) throws IOException {
-        State s = new State();
+    private static Vb6ConversionState parse(Path source) throws IOException {
+        Vb6ConversionState s = new Vb6ConversionState();
         String raw = Files.readString(source, VB6_CHARSET);
         String[] lines = raw.split("\\r?\\n", -1);
         // Beginでpush、EndでpopすることでVB6のネスト構造を復元する。
-        Deque<Node> stack = new ArrayDeque<>();
+        Deque<Vb6FormNode> stack = new ArrayDeque<>();
         int codeStart = lines.length;
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
@@ -198,8 +167,8 @@ public final class Vb6WinFormsConverter {
             Matcher begin = BEGIN.matcher(line);
             Matcher nested = BEGIN_PROPERTY.matcher(line);
             if (begin.matches()) {
-                Node parent = stack.peek();
-                Node node = new Node("control", begin.group(1), begin.group(2), parent);
+                Vb6FormNode parent = stack.peek();
+                Vb6FormNode node = new Vb6FormNode("control", begin.group(1), begin.group(2), parent);
                 if (parent != null) parent.children.add(node);
                 else if (s.form == null) s.form = node;
                 else s.warn("複数のトップレベルフォームがあります: " + node.name);
@@ -207,14 +176,14 @@ public final class Vb6WinFormsConverter {
                 s.all.add(node);
             // BeginProperty Fontなどは別コントロールではなく親コントロールの属性。
             } else if (nested.matches()) {
-                Node parent = stack.peek();
+                Vb6FormNode parent = stack.peek();
                 if (parent == null) throw new IOException("BeginPropertyの親がありません (行 " + (i+1) + ")");
-                Node node = new Node("property", "", nested.group(1), parent);
+                Vb6FormNode node = new Vb6FormNode("property", "", nested.group(1), parent);
                 parent.nested.put(node.name, node);
                 stack.push(node);
             } else if (line.equals("End") || line.equals("EndProperty")) {
                 if (stack.isEmpty()) throw new IOException("Endの数が不正です (行 " + (i+1) + ")");
-                Node popped = stack.pop();
+                Vb6FormNode popped = stack.pop();
                 if (line.equals("End") && !popped.kind.equals("control") ||
                     line.equals("EndProperty") && !popped.kind.equals("property"))
                     throw new IOException("Begin/Endの対応が不正です (行 " + (i+1) + ")");
@@ -231,17 +200,18 @@ public final class Vb6WinFormsConverter {
     }
 
     /**
-     * 解析済みのフォームをWinFormsのコントロール名・種類・親・座標に変換する。
-     * SSTabについては明示的な所属情報と位置補正を複数段階で解決する。
+     * コントロール名・WinForms型・座標・親子関係を解決する。
+     * SSTabでは明示的なTab(n).Controlと兄弟要素から所属を決め、非表示タブ用の負座標とTabHeightを補正する。
+     * @param s 更新する解析・変換状態
      */
-    private static void prepare(State s) {
+    private static void prepare(Vb6ConversionState s) {
         // VB6のVB_Name（見つからなければフォーム名）を出力先のクラス名に採用。
         Matcher classMatch = Pattern.compile("(?m)^Attribute VB_Name\\s*=\\s*\"([^\"]+)\"")
                 .matcher(s.vb6Code);
         s.className = safeIdentifier(classMatch.find() ? classMatch.group(1) : s.form.name);
         if (s.form.has("ScaleMode") && integer(s.form.prop("ScaleMode"), 1) != 1)
             s.warn("Form.ScaleMode がTwips以外です。座標は96DPIのTwipsとして暫定変換します");
-        for (Node n : s.all) {
+        for (Vb6FormNode n : s.all) {
             n.id = n.name + (n.has("Index") ? "(" + integer(n.prop("Index"), 0) + ")" : "");
             n.field = uniqueField(s, safeIdentifier(n.name + (n.has("Index")
                     ? "_" + integer(n.prop("Index"), 0) : "")));
@@ -265,7 +235,7 @@ public final class Vb6WinFormsConverter {
                 s.warn("VB6コントロール識別子が重複しています: " + n.id);
             // SSTabは後で子要素を適切なTabPageへ移すため、タブ数と見出し高を保持する。
             if ("TabDlg.SSTab".equals(n.vbType)) {
-                TabInfo t = new TabInfo(); t.tab = n;
+                Vb6TabInfo t = new Vb6TabInfo(); t.tab = n;
                 t.count = Math.max(1, integer(n.prop("Tabs"), 1));
                 t.tabHeightTwips = integer(n.prop("TabHeight"), 520);
                 s.tabs.put(n, t);
@@ -276,7 +246,7 @@ public final class Vb6WinFormsConverter {
             if (n.has("ScaleMode") && integer(n.prop("ScaleMode"), 1) != 1)
                 s.warn(n.id + " のScaleModeはTwipsではありません。子コントロール座標の手動検証が必要です");
         }
-        for (TabInfo ti : s.tabs.values()) {
+        for (Vb6TabInfo ti : s.tabs.values()) {
             for (Map.Entry<String, String> e : ti.tab.props.entrySet()) {
                 Matcher match = TAB_CONTROL.matcher(e.getKey());
                 if (match.matches()) {
@@ -286,7 +256,7 @@ public final class Vb6WinFormsConverter {
                 }
             }
             for (int i = 0; i < ti.count; i++) {
-                Node page = new Node("generated", "WinForms.TabPage", ti.tab.name + "_TabPage" + i, ti.tab);
+                Vb6FormNode page = new Vb6FormNode("generated", "WinForms.TabPage", ti.tab.name + "_TabPage" + i, ti.tab);
                 page.field = uniqueField(s, safeIdentifier(page.name));
                 page.winType = "System.Windows.Forms.TabPage";
                 page.tabIndex = i;
@@ -298,9 +268,9 @@ public final class Vb6WinFormsConverter {
         }
         // SSTab直下のコントロールは親をTabPageへ変更してから座標を補正する。
         // Frame等の内側では元の親子関係と相対座標を維持する。
-        for (Node n : s.all) {
+        for (Vb6FormNode n : s.all) {
             if (n.parent != null && s.tabs.containsKey(n.parent)) {
-                TabInfo ti = s.tabs.get(n.parent);
+                Vb6TabInfo ti = s.tabs.get(n.parent);
                 Integer tab = ti.assignments.get(n.id);
                 boolean inferred = false;
                 // 明示されたタブ所属がない場合、同名コントロール配列から推定する。
@@ -308,7 +278,7 @@ public final class Vb6WinFormsConverter {
                 if (tab == null) {
                     // Array siblings can establish otherwise missing tab membership.
                     Set<Integer> siblings = new LinkedHashSet<>();
-                    for (Node other : n.parent.children) {
+                    for (Vb6FormNode other : n.parent.children) {
                         if (other == n || !other.name.equals(n.name)) continue;
                         Integer assigned = ti.assignments.get(other.id);
                         if (assigned != null) siblings.add(assigned);
@@ -346,13 +316,24 @@ public final class Vb6WinFormsConverter {
     }
 
     /** VB.NETで大文字・小文字を区別しない名前の重複を連番で回避する。 */
-    private static String uniqueField(State s, String requested) {
+    /**
+     * フィールド名を大文字小文字を区別せず一意にする。
+     * @param s 使用済み名前の管理状態
+     * @param requested フィールド名候補
+     * @return 必要に応じて連番を付けたフィールド名
+     */
+    private static String uniqueField(Vb6ConversionState s, String requested) {
         String name = requested;
         int i = 2;
         while (!s.usedFields.add(name.toLowerCase(Locale.ROOT))) name = requested + "_" + i++;
         return name;
     }
     /** VB6の名称をVB.NETの識別子で使える文字構成へ正規化する。 */
+    /**
+     * VB6名の使用できない文字と予約語を処理してVB.NET識別子へ正規化する。
+     * @param name 元の名前
+     * @return VB.NET識別子の候補
+     */
     private static String safeIdentifier(String name) {
         String result = name.replaceAll("[^\\p{L}\\p{N}_]", "_");
         if (result.isEmpty()) result = "Unnamed";
@@ -363,8 +344,10 @@ public final class Vb6WinFormsConverter {
         return result;
     }
     /**
-     * VB6/ActiveXコントロールの型をWindows Formsの対応クラスに置き換える。
-     * 未対応型はnullとし警告を出す。COMの動作互換までは実装しない。
+     * VB6のコントロール型をWinFormsの完全修飾クラス名へ割り当てる。
+     * COM固有の処理は移行しない。
+     * @param type VB6型名
+     * @return WinForms型名。非対応ならnull
      */
     private static String controlType(String type) {
         return switch (type) {
@@ -389,19 +372,32 @@ public final class Vb6WinFormsConverter {
         };
     }
     /** 数値属性を解析し、欠落・不正値の場合は指定された既定値を用いる。 */
+    /**
+     * 数値プロパティを読み取り、末尾のVB6コメントを取り除く。
+     * @param value 属性値。未設定ならnull
+     * @param fallback 解析失敗時の既定値
+     * @return 数値化した属性値
+     */
     private static int integer(String value, int fallback) {
         if (value == null) return fallback;
         try { return Integer.parseInt(value.split("\\s+'", 2)[0].trim()); }
         catch (NumberFormatException ex) { return fallback; }
     }
     /**
-     * TwipsからPixelへの換算。1inch=1440Twipsなので pixel=twips*dpi/1440。
-     * 96DPIの場合は15Twips=1Pixelとなる。
+     * Twipsを指定DPIに対応するピクセルへ換算する。1inch=1440Twips。
+     * @param twips 元座標またはサイズ
+     * @param dpi 変換先のDPI
+     * @return 四捨五入したピクセル値
      */
     private static int px(long twips, double dpi) {
         return (int)Math.round(twips * dpi / 1440.0);
     }
     /** VB6文字列リテラルを読み、二重の引用符を1文字の引用符へ戻す。 */
+    /**
+     * VB6文字列リテラルを取り出し、二重の引用符を元に戻す。
+     * @param vbValue .frmの元の値
+     * @return デコードした文字列。nullの場合は空文字列
+     */
     private static String strValue(String vbValue) {
         if (vbValue == null) return "";
         String t = vbValue.trim();
@@ -417,27 +413,72 @@ public final class Vb6WinFormsConverter {
         return b.toString();
     }
     /** Java文字列をVB.NETの文字列リテラル形式へエスケープする。 */
+    /**
+     * 文字列をVB.NETの引用符・改行を適切に含む式へ変換する。
+     * @param javaString 変換元文字列
+     * @return VB.NET文字列式
+     */
     private static String vbString(String javaString) {
         return "\"" + javaString.replace("\"", "\"\"").replace("\r", "")
                 .replace("\n", "\" & vbCrLf & \"") + "\"";
     }
+    /**
+     * 数値で記述されたVB6真偽値を判定する。
+     * @param value VB6属性値
+     * @return 非ゼロならtrue
+     */
     private static boolean vbTrue(String value) { return integer(value, 0) != 0; }
+    /**
+     * JavaのbooleanをVB.NETリテラルへ変換する。
+     * @param value 真偽値
+     * @return TrueまたはFalse
+     */
     private static String bool(boolean value) { return value ? "True" : "False"; }
+    /**
+     * フィールド名をMe.で修飾する。
+     * @param n フィールド名
+     * @return Me.フィールド名
+     */
     private static String q(String n) { return "Me." + n; }
-    private static String target(Node n) { return "VB.Form".equals(n.vbType) ? "Me" : q(n.field); }
+    /**
+     * VB.NETプロパティ代入の対象を選択する。
+     * @param n コントロールノード
+     * @return フォームならMe、子ならMe.フィールド名
+     */
+    private static String target(Vb6FormNode n) { return "VB.Form".equals(n.vbType) ? "Me" : q(n.field); }
+    /**
+     * 文字列バッファに1行をCRLF付きで追記する。
+     * @param b 生成先
+     * @param s 追記する内容
+     */
     private static void line(StringBuilder b, String s) { b.append(s).append("\r\n"); }
-    private static void set(StringBuilder b, Node n, String property, String expression) {
+    /**
+     * VB.NETのコントロールプロパティ代入文を生成する。
+     * @param b 生成先
+     * @param n コントロールノード
+     * @param property プロパティ名
+     * @param expression 右辺のVB.NET式
+     */
+    private static void set(StringBuilder b, Vb6FormNode n, String property, String expression) {
         line(b, "        " + target(n) + "." + property + " = " + expression);
     }
     /** ImageList等の、フォーム上の表示位置を持たないコンポーネントを判別する。 */
-    private static boolean nonvisual(Node n) {
+    /**
+     * ImageListなど、Controls.Addをしない非表示コンポーネントを判定する。
+     * @param n 対象ノード
+     * @return 非表示コンポーネントならtrue
+     */
+    private static boolean nonvisual(Vb6FormNode n) {
         return n.winType != null && (n.winType.endsWith(".ImageList") || n.winType.endsWith(".OpenFileDialog"));
     }
     /**
-     * コントロール単位のName/Location/Size/Text/Fontと種類固有の属性を書き出す。
-     * VB6とWinFormsで列挙値の意味が異なる属性はswitch内で個別対応する。
+     * 単一コントロールの位置、サイズ、文字、フォント、種別固有の属性を生成する。
+     * LabelはCaption・WordWrap・AutoSizeから文字切れを避ける設定を決定する。
+     * @param out 出力バッファ
+     * @param n 対象ノード
+     * @param s 変換状態
      */
-    private static void configureControl(StringBuilder out, Node n, State s) {
+    private static void configureControl(StringBuilder out, Vb6FormNode n, Vb6ConversionState s) {
         if (!n.supported || n == s.form) return;
         if (nonvisual(n)) return;
         set(out, n, "Name", vbString(n.field));
@@ -450,7 +491,7 @@ public final class Vb6WinFormsConverter {
         if (n.has("Enabled")) set(out, n, "Enabled", bool(vbTrue(n.prop("Enabled"))));
         if (n.has("TabIndex")) set(out, n, "TabIndex", Integer.toString(integer(n.prop("TabIndex"), 0)));
         // フォント名・ポイント数・太字などはBeginProperty Fontから復元する。
-        Node font = n.nested.get("Font");
+        Vb6FormNode font = n.nested.get("Font");
         if (font != null) {
             String fontName = strValue(font.prop("Name"));
             if (fontName.isEmpty()) fontName = "MS UI Gothic";
@@ -544,8 +585,9 @@ public final class Vb6WinFormsConverter {
         }
     }
     /**
-     * OLE_COLOR形式の値をSystem.Drawing.Color式にする。
-     * VB6通常色はBGR順で、&H800000xxはWindowsのシステム色を表す。
+     * VB6のOLE_COLORをSystem.Drawing.Colorの式へ変換する。通常色はBGR、システム色は一部対応。
+     * @param raw VB6の色コード
+     * @return WinForms色の式。変換できなければnull
      */
     private static String toColor(String raw) {
         if (raw == null) return null;
@@ -565,10 +607,12 @@ public final class Vb6WinFormsConverter {
         return "System.Drawing.Color.FromArgb(" + r + ", " + g + ", " + b + ")";
     }
     /**
-     * Designer.vbのInitializeComponent()を生成する。
-     * コントロールのインスタンス生成→属性設定→親への追加→フィールド宣言の順に出力。
+     * WinFormsのDesigner.vbを生成する。
+     * コントロール生成、プロパティ設定、TabPageと親子関係の割当、フィールド宣言を順に行う。
+     * @param s 解決済み変換状態
+     * @return Designer.vb全文
      */
-    private static String generateDesigner(State s) {
+    private static String generateDesigner(Vb6ConversionState s) {
         StringBuilder out = new StringBuilder();
         line(out, "' 自動生成: Vb6WinFormsConverter (Java 17) / レイアウト変換のみ");
         line(out, "' 自動生成されたため手作業変更は避けてください。制限は migration_report.txt を参照。");
@@ -591,22 +635,22 @@ public final class Vb6WinFormsConverter {
         line(out, "    Private Sub InitializeComponent()");
         line(out, "        Me.components = New System.ComponentModel.Container()");
         // 先にコントロールの実体をすべて作り、Controls.Addが参照できるようにする。
-        for (Node n : s.all) {
+        for (Vb6FormNode n : s.all) {
             if (n != s.form && n.supported) {
                 if (n.winType.endsWith(".ImageList"))
                     line(out, "        Me." + n.field + " = New " + n.winType + "(Me.components)");
                 else line(out, "        Me." + n.field + " = New " + n.winType + "()");
             }
         }
-        for (TabInfo t : s.tabs.values()) for (Node p : t.pages)
+        for (Vb6TabInfo t : s.tabs.values()) for (Vb6FormNode p : t.pages)
             line(out, "        Me." + p.field + " = New System.Windows.Forms.TabPage()");
         line(out, "        Me.SuspendLayout()");
         // 次に位置・サイズ・表示文字などの基本属性を設定する。
-        for (Node n : s.all) {
+        for (Vb6FormNode n : s.all) {
             if (n.supported && n != s.form) configureControl(out, n, s);
         }
-        for (TabInfo ti : s.tabs.values()) {
-            for (Node page : ti.pages) {
+        for (Vb6TabInfo ti : s.tabs.values()) {
+            for (Vb6FormNode page : ti.pages) {
                 int i = page.tabIndex;
                 set(out, page, "Name", vbString(page.field));
                 set(out, page, "Text", vbString(strValue(ti.tab.prop("TabCaption(" + i + ")"))));
@@ -617,7 +661,7 @@ public final class Vb6WinFormsConverter {
             set(out, ti.tab, "ItemSize", "New System.Drawing.Size(" + px(1800, s.dpi) + ", " + Math.max(1, px(ti.tabHeightTwips, s.dpi)) + ")");
         }
         // ネストしたFrame等への追加と、SSTab直下のTabPageへの追加を行う。
-        for (Node n : s.all) {
+        for (Vb6FormNode n : s.all) {
             if (n == s.form || n.parent == s.form || !n.supported || nonvisual(n)) continue;
             if (s.tabs.containsKey(n.parent)) {
                 // Tab pages may be omitted if a tab control is skipped in the future.
@@ -626,7 +670,7 @@ public final class Vb6WinFormsConverter {
                 line(out, "        Me." + n.parent.field + ".Controls.Add(Me." + n.field + ")");
             }
         }
-        for (TabInfo ti : s.tabs.values()) for (Node page : ti.pages)
+        for (Vb6TabInfo ti : s.tabs.values()) for (Vb6FormNode page : ti.pages)
             line(out, "        Me." + ti.tab.field + ".TabPages.Add(Me." + page.field + ")");
         // フォーム内部のサイズを設定。AutoScaleMode=NoneでDPI自動拡大を防ぐ。
         set(out, s.form, "Name", vbString(s.className));
@@ -650,21 +694,22 @@ public final class Vb6WinFormsConverter {
             };
             set(out, s.form, "StartPosition", "System.Windows.Forms.FormStartPosition." + start);
         }
-        for (Node child : s.form.children) if (child.supported && !nonvisual(child))
+        for (Vb6FormNode child : s.form.children) if (child.supported && !nonvisual(child))
             line(out, "        Me.Controls.Add(Me." + child.field + ")");
         line(out, "        Me.ResumeLayout(False)");
         line(out, "    End Sub");
         line(out, "");
-        for (Node n : s.all) if (n != s.form && n.supported)
+        for (Vb6FormNode n : s.all) if (n != s.form && n.supported)
             line(out, "    Friend WithEvents " + n.field + " As " + n.winType);
-        for (TabInfo t : s.tabs.values()) for (Node p : t.pages)
+        for (Vb6TabInfo t : s.tabs.values()) for (Vb6FormNode p : t.pages)
             line(out, "    Friend WithEvents " + p.field + " As " + p.winType);
         line(out, "End Class");
         return out.toString();
     }
     /**
-     * VB6コードから単純なPublicフィールド宣言だけを抽出してコードビハインドへ追加する。
-     * イベント・業務ロジック・コントロール配列の動作は自動移植しない。
+     * VB6コードから単純なPublicフィールドのみを抽出する。イベントや業務ロジックは移植しない。
+     * @param code 元VB6コード
+     * @return VB.NETのPublicフィールド宣言
      */
     private static String extractSimplePublicFields(String code) {
         StringBuilder output = new StringBuilder();
@@ -675,14 +720,24 @@ public final class Vb6WinFormsConverter {
         return output.toString();
     }
     /** CSVフィールドを引用符で囲み、フィールド内の引用符を二重化する。 */
+    /**
+     * CSVフィールドを引用符で囲み、内部の引用符をエスケープする。
+     * @param value 出力する値
+     * @return CSV用にエスケープした値
+     */
     private static String csv(String value) {
         return "\"" + value.replace("\"", "\"\"") + "\"";
     }
     /** 元のTwips、換算後のPixel、親子関係、未対応の有無を一覧CSVへ出力する。 */
-    private static String generateAudit(State s) {
+    /**
+     * 元のTwips座標、換算後のPixel座標、親子関係などをCSVに出力する。
+     * @param s 変換状態
+     * @return 座標監査CSV全文
+     */
+    private static String generateAudit(Vb6ConversionState s) {
         StringBuilder b = new StringBuilder();
         line(b, "VB6Type,VB6Name,WinFormsType,WinFormsField,VB6Parent,WinFormsParent,TabIndex,LeftTwips,TopTwips,WidthTwips,HeightTwips,PixelX,PixelY,PixelWidth,PixelHeight,Output");
-        for (Node n : s.all) {
+        for (Vb6FormNode n : s.all) {
             String parent = n.parent == null ? "" : n.parent.id;
             String resolved = n.resolvedParent.isEmpty() ? (n.parent == null ? "" : n.parent.field) : n.resolvedParent;
             String[] v = {n.vbType,n.id,n.winType==null ? "" : n.winType,n.field,parent,resolved,
@@ -695,10 +750,12 @@ public final class Vb6WinFormsConverter {
         return b.toString();
     }
     /**
-     * 前提条件・未移植要素・座標補正数・推定したタブ・警告をテキストへ出力する。
-     * 元VB6コードは参考資料として掲載し、自動移行済みとは扱わない。
+     * 変換条件、補正・推定件数、警告、未移植コードをレポートに出力する。
+     * @param s 変換状態
+     * @param source 入力.frmパス
+     * @return 移行レポート全文
      */
-    private static String generateReport(State s, Path source) {
+    private static String generateReport(Vb6ConversionState s, Path source) {
         StringBuilder b = new StringBuilder();
         line(b, "VB6 -> VB.NET WinForms 座標変換レポート");
         line(b, "入力: " + source.getFileName());
