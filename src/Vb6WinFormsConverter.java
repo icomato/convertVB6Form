@@ -59,6 +59,50 @@ public final class Vb6WinFormsConverter {
 	// 非選択タブのコントロールが、左方向へ75000Twips移動して保存されるケースを補正する。
 	/** SSTabが非表示タブを退避させる際に用いるTwipsオフセット。 */
 	private static final long SSTAB_HIDE_TWIPS = 75000L;
+	/**
+	* DPIを省略した場合の換算値。
+	* Windowsの標準倍率に相当する。
+	*/
+	private static final double DEFAULT_DPI = 96.0;
+	/**
+	* 変換ツールが受け付けるDPIの下限。
+	* 標準倍率の半分。
+	*/
+	private static final double MIN_DPI = 48.0;
+	/**
+	* 変換ツールが受け付けるDPIの上限。
+	* 標準倍率の8倍。
+	*/
+	private static final double MAX_DPI = 768.0;
+	/**
+	* 1インチに含まれるTwips数。
+	* DPIからピクセルへ換算する際の基準。
+	*/
+	private static final double TWIPS_PER_INCH = 1440.0;
+	/** VB6のScaleModeでTwipsを表す値。 */
+	private static final int VB_SCALE_MODE_TWIPS = 1;
+	/** SSTabのTabHeightが未指定の場合に使う見出し高さ（Twips）。 */
+	private static final int DEFAULT_TAB_HEIGHT_TWIPS = 520;
+	/** 非表示タブの退避座標とみなすLeft値の境界（Twips、既存の補正条件）。 */
+	private static final int HIDDEN_TAB_LEFT_THRESHOLD_TWIPS = -10000;
+	/** TabPage原点に丸める小さな負のTop値の下限（Twips、境界値は除外）。 */
+	private static final int TAB_TOP_CLAMP_LIMIT_TWIPS = -200;
+	/** 生成するタブ見出しの固定幅（Twips、既存の表示設定）。 */
+	private static final int TAB_HEADER_WIDTH_TWIPS = 1800;
+	/** フォントサイズ未指定・不正時の既定値（ポイント）。 */
+	private static final String DEFAULT_FONT_SIZE_POINTS = "9";
+	/** フォントのWeight未指定時に使う標準の太さ。 */
+	private static final int DEFAULT_FONT_WEIGHT = 400;
+	/** フォントを太字にするWeightの下限。 */
+	private static final int BOLD_FONT_WEIGHT = 700;
+	/** TextBoxのMaxLength未指定時に使用する既存の入力上限。 */
+	private static final int DEFAULT_TEXT_MAX_LENGTH = 32767;
+	/** CByteやRGBの各成分で表現できる符号なし8ビット値の上限。 */
+	private static final int UNSIGNED_BYTE_MAX = 255;
+	/** OLE_COLORの上位バイトを取り出すマスク。 */
+	private static final long OLE_COLOR_TYPE_MASK = 0xFF000000L;
+	/** OLE_COLORでシステム色を示す上位バイトの値。 */
+	private static final long OLE_SYSTEM_COLOR_FLAG = 0x80000000L;
 
 	/**
 	* インスタンス化を禁止するユーティリティクラスのコンストラクタ。
@@ -81,7 +125,7 @@ public final class Vb6WinFormsConverter {
 		// 引数の過不足を検出したら、使用方法を表示して変換を開始せず終了する。
 		if (args.length < 2 || args.length > 3) {
 			System.err.println("使い方: java -jar Vb6WinFormsConverter.jar <input.frm> <output-dir> [dpi: default 96]");
-			System.exit(2);
+			System.exit(2); // 2は引数不正を呼び出し元へ通知する終了コード。
 		}
 		Path source = Path.of(args[0]).toAbsolutePath().normalize();
 		Path out = Path.of(args[1]).toAbsolutePath().normalize();
@@ -90,10 +134,11 @@ public final class Vb6WinFormsConverter {
 		if (!Files.isRegularFile(source)) {
 			throw new IOException("入力ファイルがありません: " + source);
 		}
-		double dpi = args.length == 3 ? Double.parseDouble(args[2]) : 96.0;
+		// 引数は入力・出力の2個が必須で、3個目だけが省略可能なDPI。
+		double dpi = args.length == 3 ? Double.parseDouble(args[2]) : DEFAULT_DPI;
 
 		// 座標換算に使えないDPIを拒否し、極端な拡大縮小や非有限値を防ぐ。
-		if (!(dpi >= 48.0 && dpi <= 768.0) || !Double.isFinite(dpi)) {
+		if (!(dpi >= MIN_DPI && dpi <= MAX_DPI) || !Double.isFinite(dpi)) {
 			throw new IllegalArgumentException("DPIは48～768を指定してください");
 		}
 		// ステップ1: .frm解析 → ステップ2: コントロールの種類と配置を確定する。
@@ -215,6 +260,7 @@ public final class Vb6WinFormsConverter {
 	private static Vb6ConversionStateEntity parseForm(Path source) throws IOException {
 		Vb6ConversionStateEntity s = new Vb6ConversionStateEntity();
 		String raw = Files.readString(source, VB6_CHARSET);
+		// splitの-1は末尾の空行も保持する指定。元コードをレポートに残すため省略しない。
 		String[] lines = raw.split("\\r?\\n", -1);
 		// Beginでpush、EndでpopすることでVB6のネスト構造を復元する。
 		Deque<Vb6FormNodeEntity> stack = new ArrayDeque<>();
@@ -236,6 +282,7 @@ public final class Vb6WinFormsConverter {
 			// コントロールの開始宣言からノードを作成し、階層と一覧に登録する。
 			if (begin.matches()) {
 				Vb6FormNodeEntity parent = stack.peek();
+				// BEGINのグループ1はVB6型名、グループ2はコントロール名。
 				Vb6FormNodeEntity node = new Vb6FormNodeEntity("control", begin.group(1), begin.group(2), parent);
 
 				// 現在の親コントロールに子を登録し、元の包含関係を保持する。
@@ -260,6 +307,7 @@ public final class Vb6WinFormsConverter {
 				if (parent == null) {
 					throw new IOException("BeginPropertyの親がありません (行 " + (i + 1) + ")");
 				}
+				// BEGIN_PROPERTYのグループ1はFontなどの複合属性名。
 				Vb6FormNodeEntity node = new Vb6FormNodeEntity("property", "", nested.group(1), parent);
 				parent.getNested().put(node.getName(), node);
 				stack.push(node);
@@ -285,6 +333,7 @@ public final class Vb6WinFormsConverter {
 
 				// 代入形式の行から属性名と値を抽出し、現在のノードに保存する。
 				if (prop.matches()) {
+					// PROPERTYのグループ1は属性名、グループ2は値。
 					stack.peek().getProps().put(prop.group(1).trim(), prop.group(2).trim());
 				}
 			}
@@ -321,7 +370,7 @@ public final class Vb6WinFormsConverter {
 		s.setClassName(toSafeIdentifier(classMatch.find() ? classMatch.group(1) : s.getForm().getName()));
 
 		// フォームの座標単位が前提と異なる場合は、暫定換算であることを警告する。
-		if (s.getForm().hasProperty("ScaleMode") && parseInteger(s.getForm().getProperty("ScaleMode"), 1) != 1) {
+		if (s.getForm().hasProperty("ScaleMode") && parseInteger(s.getForm().getProperty("ScaleMode"), VB_SCALE_MODE_TWIPS) != VB_SCALE_MODE_TWIPS) {
 			s.addWarning("Form.ScaleMode がTwips以外です。座標は96DPIのTwipsとして暫定変換します");
 		}
 
@@ -347,6 +396,7 @@ public final class Vb6WinFormsConverter {
 			if (n.hasProperty("Index")) {
 				s.addWarning(n.getId() + " はVB6のコントロール配列です。WinFormsでは " + n.getField() + " へ個別変換しました。配列イベント処理の移植は別途必要です");
 			}
+			// 位置・サイズの未指定値は0 Twips。フォームの幅・高さだけはClientWidth・ClientHeightも参照する。
 			n.setLeftTwips(parseInteger(n.getProperty("Left"), 0));
 			n.setTopTwips(parseInteger(n.getProperty("Top"), 0));
 			n.setWidthTwips(parseInteger(n.getProperty("Width"), parseInteger(n.getProperty("ClientWidth"), 0)));
@@ -366,8 +416,9 @@ public final class Vb6WinFormsConverter {
 			if ("TabDlg.SSTab".equals(n.getVbType())) {
 				Vb6TabInfoEntity t = new Vb6TabInfoEntity();
 				t.setTab(n);
+				// タブ数は少なくとも1枚とし、未指定の場合も1枚を生成する。
 				t.setCount(Math.max(1, parseInteger(n.getProperty("Tabs"), 1)));
-				t.setTabHeightTwips(parseInteger(n.getProperty("TabHeight"), 520));
+				t.setTabHeightTwips(parseInteger(n.getProperty("TabHeight"), DEFAULT_TAB_HEIGHT_TWIPS));
 				s.getTabs().put(n, t);
 			}
 
@@ -382,7 +433,7 @@ public final class Vb6WinFormsConverter {
 			}
 
 			// コントロールの座標単位がTwips以外なら、子の配置の手動確認を促す。
-			if (n.hasProperty("ScaleMode") && parseInteger(n.getProperty("ScaleMode"), 1) != 1) {
+			if (n.hasProperty("ScaleMode") && parseInteger(n.getProperty("ScaleMode"), VB_SCALE_MODE_TWIPS) != VB_SCALE_MODE_TWIPS) {
 				s.addWarning(n.getId() + " のScaleModeはTwipsではありません。子コントロール座標の手動検証が必要です");
 			}
 		}
@@ -396,6 +447,7 @@ public final class Vb6WinFormsConverter {
 
 				// Tab(n).Control(m)の定義を、子識別子からタブ番号を引く対応表に変換する。
 				if (match.matches()) {
+					// TAB_CONTROLのグループ1は0始まりのタブ番号。グループ2の並び順は所属判定に使わない。
 					int tabIdx = Integer.parseInt(match.group(1));
 					String original = parseVbString(e.getValue());
 					ti.getAssignments().put(original, tabIdx);
@@ -455,6 +507,7 @@ public final class Vb6WinFormsConverter {
 					if (siblings.size() == 1) {
 						tab = siblings.iterator().next();
 					} else {
+						// 0は先頭、1は2枚目のタブ。負の退避座標は2枚目を候補とし、1枚構成なら先頭に収める。
 						tab = n.getLeftTwips() >= 0 ? 0 : Math.min(1, ti.getCount() - 1);
 					}
 					inferred = true;
@@ -474,7 +527,7 @@ public final class Vb6WinFormsConverter {
 				}
 				// SSTabで非表示のタブを左へ追い出した大きな負座標だけを補正する。
 				// 通常の小さな負座標は意図的な位置として扱い、補正しない。
-				long correctedLeft = n.getLeftTwips() < -10000
+				long correctedLeft = n.getLeftTwips() < HIDDEN_TAB_LEFT_THRESHOLD_TWIPS
 				? (long) n.getLeftTwips() + SSTAB_HIDE_TWIPS : n.getLeftTwips();
 
 				// 非表示タブの退避座標を補正したノードだけを、補正件数に加算する。
@@ -488,7 +541,7 @@ public final class Vb6WinFormsConverter {
 				// Some VB6 controls begin slightly above the tab header baseline.
 
 				// 見出し付近の小さな負の位置を原点へ丸め、TabPage内でのはみ出しを抑える。
-				if (correctedTop < 0 && correctedTop > -200) {
+				if (correctedTop < 0 && correctedTop > TAB_TOP_CLAMP_LIMIT_TWIPS) {
 					correctedTop = 0;
 				}
 				n.setPixelTop(toPixels(correctedTop, s.getDpi()));
@@ -509,6 +562,7 @@ public final class Vb6WinFormsConverter {
 	*/
 	private static String toUniqueFieldName(Vb6ConversionStateEntity s, String requested) {
 		String name = requested;
+		// 元の候補名を最初に試すため、重複時の連番は2から開始する。
 		int i = 2;
 		// 大文字小文字を区別しない名前の登録に成功するまで、連番付きの候補を試す。
 		while (!s.getUsedFields().add(name.toLowerCase(Locale.ROOT))) {
@@ -592,7 +646,7 @@ public final class Vb6WinFormsConverter {
 			return fallback;
 		}
 		try {
-			// 末尾のVB6コメントと前後の空白を除き、整数として読み取った値を返す。
+			// 最大2分割の先頭（値部分）から空白を除き、整数として読み取った値を返す。
 			return Integer.parseInt(value.split("\\s+'", 2)[0].trim());
 		} catch (NumberFormatException ex) {
 			// 整数として解釈できない値は、呼び出し元が指定した既定値に置き換える。
@@ -609,7 +663,7 @@ public final class Vb6WinFormsConverter {
 	*/
 	private static int toPixels(long twips, double dpi) {
 		// Twipsを指定DPIで換算し、最も近い整数ピクセル値を返す。
-		return (int) Math.round(twips * dpi / 1440.0);
+		return (int) Math.round(twips * dpi / TWIPS_PER_INCH);
 	}
 
 	/**
@@ -627,11 +681,12 @@ public final class Vb6WinFormsConverter {
 		}
 		String t = vbValue.trim();
 
-		// 引用符で囲まれていない値は、末尾のVB6コメントを除いて返す。
+		// 最大2分割の先頭を取り出し、末尾のVB6コメントを除いた値を返す。
 		if (!t.startsWith("\"")) {
-			// 引用符で囲まれていない値は、末尾のVB6コメントを除いて返す。
+			// 最大2分割の先頭を取り出し、末尾のVB6コメントを除いた値を返す。
 			return t.split("\\s+'", 2)[0];
 		}
+		// 引用符のエスケープを復元した、VB6文字列属性の本文を蓄積する。
 		StringBuilder b = new StringBuilder();
 
 		// 開始引用符の次から読み、引用符のエスケープと終端を区別する。
@@ -709,7 +764,7 @@ public final class Vb6WinFormsConverter {
 
 	/**
 	* 文字列バッファに1行をCRLF付きで追記する。
-	* @param b 生成先
+	* @param b 生成するVB.NETコードや監査資料の行を蓄積する文字列バッファ
 	* @param s 追記する内容
 	*/
 	private static void appendLine(StringBuilder b, String s) {
@@ -718,7 +773,7 @@ public final class Vb6WinFormsConverter {
 
 	/**
 	* VB.NETのコントロールプロパティ代入文を生成する。
-	* @param b 生成先
+	* @param b 生成するVB.NETコードや監査資料の行を蓄積する文字列バッファ
 	* @param n コントロールノード
 	* @param property プロパティ名
 	* @param expression 右辺のVB.NET式
@@ -740,7 +795,7 @@ public final class Vb6WinFormsConverter {
 	/**
 	* 単一コントロールの位置、サイズ、文字、フォント、種別固有の属性を生成する。
 	* LabelはCaption・WordWrap・AutoSizeから文字切れを避ける設定を決定する。
-	* @param out 出力バッファ
+	* @param out コントロールのプロパティ代入文を追記するVB.NETコードバッファ
 	* @param n 対象ノード
 	* @param s 変換状態
 	*/
@@ -787,6 +842,7 @@ public final class Vb6WinFormsConverter {
 
 		// 明示されたタブ移動順を数値として出力する。
 		if (n.hasProperty("TabIndex")) {
+			// TabIndexは0始まり。未指定の場合は先頭の0を使う。
 			appendPropertyAssignment(out, n, "TabIndex", Integer.toString(parseInteger(n.getProperty("TabIndex"), 0)));
 		}
 		// フォント名・ポイント数・太字などはBeginProperty Fontから復元する。
@@ -800,16 +856,16 @@ public final class Vb6WinFormsConverter {
 			if (fontName.isEmpty()) {
 				fontName = "MS UI Gothic";
 			}
-			String fontSize = font.getProperty("Size") == null ? "9" : font.getProperty("Size").trim();
+			String fontSize = font.getProperty("Size") == null ? DEFAULT_FONT_SIZE_POINTS : font.getProperty("Size").trim();
 			try {
 				new BigDecimal(fontSize);
 			} catch (NumberFormatException ex) {
-				fontSize = "9";
+				fontSize = DEFAULT_FONT_SIZE_POINTS;
 			}
 			List<String> styles = new ArrayList<>();
 
 			// VB6の太字に相当するWeightなら、出力するフォント装飾にBoldを加える。
-			if (parseInteger(font.getProperty("Weight"), 400) >= 700) {
+			if (parseInteger(font.getProperty("Weight"), DEFAULT_FONT_WEIGHT) >= BOLD_FONT_WEIGHT) {
 				styles.add("System.Drawing.FontStyle.Bold");
 			}
 
@@ -828,9 +884,10 @@ public final class Vb6WinFormsConverter {
 				styles.add("System.Drawing.FontStyle.Strikeout");
 			}
 			String style = styles.isEmpty() ? "System.Drawing.FontStyle.Regular" : String.join(" Or ", styles);
+			// Charset未指定時の0はANSI文字セット。CByteの範囲に収めて生成する。
 			int charset = parseInteger(font.getProperty("Charset"), 0);
 			appendPropertyAssignment(out, n, "Font", "New System.Drawing.Font(" + toVbStringLiteral(fontName) + ", CSng(" + fontSize
-			+ "), " + style + ", System.Drawing.GraphicsUnit.Point, CByte(" + Math.max(0, Math.min(255, charset)) + "))");
+			+ "), " + style + ", System.Drawing.GraphicsUnit.Point, CByte(" + Math.max(0, Math.min(UNSIGNED_BYTE_MAX, charset)) + "))");
 		}
 
 		// 背景色が指定されている場合だけ、OLE_COLORからの変換を試みる。
@@ -865,6 +922,7 @@ public final class Vb6WinFormsConverter {
 
 				// ラベルの配置指定を、WinFormsの文字揃えに変換する。
 				if (n.hasProperty("Alignment")) {
+					// Alignmentの対応値は0が左寄せ、1が右寄せ、2が中央寄せ。未指定は0。
 					appendPropertyAssignment(out, n, "TextAlign", switch (parseInteger(n.getProperty("Alignment"), 0)) {
 						case 1 -> "System.Drawing.ContentAlignment.MiddleRight";
 						case 2 -> "System.Drawing.ContentAlignment.MiddleCenter";
@@ -886,7 +944,7 @@ public final class Vb6WinFormsConverter {
 
 				// 入力文字数の上限が指定されている場合だけ、MaxLengthを設定する。
 				if (n.hasProperty("MaxLength")) {
-					appendPropertyAssignment(out, n, "MaxLength", Integer.toString(parseInteger(n.getProperty("MaxLength"), 32767)));
+					appendPropertyAssignment(out, n, "MaxLength", Integer.toString(parseInteger(n.getProperty("MaxLength"), DEFAULT_TEXT_MAX_LENGTH)));
 				}
 
 				// 複数行入力の指定を、WinFormsのMultilineに引き継ぐ。
@@ -896,6 +954,7 @@ public final class Vb6WinFormsConverter {
 
 				// スクロールバーの指定値を、WinFormsの列挙値へ変換する。
 				if (n.hasProperty("ScrollBars")) {
+					// ScrollBarsの既存対応表は0がなし、1が縦、2が横、3が両方。
 					String bars = switch (parseInteger(n.getProperty("ScrollBars"), 0)) {
 						case 1 -> "Vertical";
 						case 2 -> "Horizontal";
@@ -916,6 +975,7 @@ public final class Vb6WinFormsConverter {
 
 				// コンボボックスの入力方式を、WinFormsのDropDownStyleへ変換する。
 				if (n.hasProperty("Style")) {
+					// ComboBox.Styleの対応値は0が通常、1が単純、2が選択専用。
 					String style = switch (parseInteger(n.getProperty("Style"), 0)) {
 						case 1 -> "Simple";
 						case 2 -> "DropDownList";
@@ -932,6 +992,7 @@ public final class Vb6WinFormsConverter {
 
 				// リストの複数選択方式を、WinFormsのSelectionModeへ変換する。
 				if (n.hasProperty("MultiSelect")) {
+					// MultiSelectの対応値は0が単一選択、1が単純な複数選択、2が拡張複数選択。
 					String mode = switch (parseInteger(n.getProperty("MultiSelect"), 0)) {
 						case 1 -> "MultiSimple";
 						case 2 -> "MultiExtended";
@@ -944,12 +1005,15 @@ public final class Vb6WinFormsConverter {
 
 				// PictureBoxの枠指定を、WinFormsの枠の有無に変換する。
 				if (n.hasProperty("BorderStyle")) {
+					// PictureBox.BorderStyleは0が枠なし。それ以外は既存どおり単線の枠を生成する。
 					appendPropertyAssignment(out, n, "BorderStyle",
 					"System.Windows.Forms.BorderStyle." + (parseInteger(n.getProperty("BorderStyle"), 0) == 0 ? "None" : "FixedSingle"));
 				}
 			}
 			case "MSComctlLib.ListView" -> {
+				// View未指定時は既存の既定値3を使う。下の対応表でWinFormsの表示方式を選ぶ。
 				int view = parseInteger(n.getProperty("View"), 3);
+				// ListView.Viewの既存対応表は0が大アイコン、1が詳細、2が小アイコン、それ以外が一覧。
 				String style = switch (view) {
 					case 0 -> "LargeIcon";
 					case 1 -> "Details";
@@ -978,6 +1042,7 @@ public final class Vb6WinFormsConverter {
 			// 色の指定がないことをnullで示し、呼び出し元で既定色を維持できるようにする。
 			return null;
 		}
+		// OLE_COLORは最大32ビットなので、&Hに続く16進数を1～8桁として受け付ける。
 		Matcher m = Pattern.compile("&H([0-9A-Fa-f]{1,8})&?").matcher(raw.trim());
 
 		// 対応する16進OLE_COLOR形式でない値は、生成コードに出力しない。
@@ -985,12 +1050,14 @@ public final class Vb6WinFormsConverter {
 			// 対応する16進形式でない色は、変換不可を示すnullとして返す。
 			return null;
 		}
+		// グループ1の色コードを基数16で読み、符号なし32ビット相当の値として扱う。
 		long value = Long.parseUnsignedLong(m.group(1), 16);
 
 		// システム色を示す識別値なら、対応するSystemColorsの式を返す。
-		if ((value & 0xFF000000L) == 0x80000000L) {
+		if ((value & OLE_COLOR_TYPE_MASK) == OLE_SYSTEM_COLOR_FLAG) {
+			// 下位8ビットがシステム色番号。対応する5・8・15・18だけを下の表で変換する。
 			// 対応済みのシステム色の式を返し、未対応のシステム色にはnullを返す。
-			return switch ((int) (value & 0xFF)) {
+			return switch ((int) (value & UNSIGNED_BYTE_MAX)) {
 				case 5 -> "System.Drawing.SystemColors.Window";
 				case 8 -> "System.Drawing.SystemColors.WindowText";
 				case 15 -> "System.Drawing.SystemColors.Control";
@@ -998,7 +1065,8 @@ public final class Vb6WinFormsConverter {
 				default -> null;
 			};
 		}
-		int b = (int) ((value >> 16) & 255), g = (int) ((value >> 8) & 255), r = (int) (value & 255);
+		// OLE_COLORは下位からR・G・B各8ビット。16ビットと8ビットのシフトでBとGを抽出する。
+		int b = (int) ((value >> 16) & UNSIGNED_BYTE_MAX), g = (int) ((value >> 8) & UNSIGNED_BYTE_MAX), r = (int) (value & UNSIGNED_BYTE_MAX);
 		// BGRの各成分をRGB順に並べ、WinFormsの色生成式として返す。
 		return "System.Drawing.Color.FromArgb(" + r + ", " + g + ", " + b + ")";
 	}
@@ -1011,6 +1079,7 @@ public final class Vb6WinFormsConverter {
 	* @return Designer.vb全文
 	*/
 	private static String toDesignerSource(Vb6ConversionStateEntity s) {
+		// 生成するDesigner.vbの全文（初期化処理・プロパティ・フィールド宣言）を蓄積する。
 		StringBuilder out = new StringBuilder();
 		appendLine(out, "' 自動生成: Vb6WinFormsConverter (Java 21) / レイアウト変換のみ");
 		appendLine(out, "' 自動生成されたため手作業変更は避けてください。制限は migration_report.txt を参照。");
@@ -1081,7 +1150,7 @@ public final class Vb6WinFormsConverter {
 			}
 			appendPropertyAssignment(out, ti.getTab(), "Multiline", "True");
 			appendPropertyAssignment(out, ti.getTab(), "SizeMode", "System.Windows.Forms.TabSizeMode.Fixed");
-			appendPropertyAssignment(out, ti.getTab(), "ItemSize", "New System.Drawing.Size(" + toPixels(1800, s.getDpi()) + ", " + Math.max(1, toPixels(ti.getTabHeightTwips(), s.getDpi())) + ")");
+			appendPropertyAssignment(out, ti.getTab(), "ItemSize", "New System.Drawing.Size(" + toPixels(TAB_HEADER_WIDTH_TWIPS, s.getDpi()) + ", " + Math.max(1, toPixels(ti.getTabHeightTwips(), s.getDpi())) + ")");
 		}
 		// ネストしたFrame等への追加と、SSTab直下のTabPageへの追加を行う。
 
@@ -1115,12 +1184,14 @@ public final class Vb6WinFormsConverter {
 		// フォーム内部のサイズを設定。AutoScaleMode=NoneでDPI自動拡大を防ぐ。
 		appendPropertyAssignment(out, s.getForm(), "Name", toVbStringLiteral(s.getClassName()));
 		appendPropertyAssignment(out, s.getForm(), "AutoScaleMode", "System.Windows.Forms.AutoScaleMode.None");
+		// ClientWidth・ClientHeightが未指定の場合は0 Twipsとして扱う。
 		appendPropertyAssignment(out, s.getForm(), "ClientSize", "New System.Drawing.Size(" + toPixels(parseInteger(s.getForm().getProperty("ClientWidth"), 0), s.getDpi()) + ", "
 		+ toPixels(parseInteger(s.getForm().getProperty("ClientHeight"), 0), s.getDpi()) + ")");
 		appendPropertyAssignment(out, s.getForm(), "Text", toVbStringLiteral(parseVbString(s.getForm().getProperty("Caption"))));
 
 		// フォームの枠形式が指定されている場合だけ、FormBorderStyleに変換する。
 		if (s.getForm().hasProperty("BorderStyle")) {
+			// フォームの枠は0なし・1固定・2可変・3ダイアログ・4固定ツール・5可変ツール。未指定は2。
 			String border = switch (parseInteger(s.getForm().getProperty("BorderStyle"), 2)) {
 				case 0 -> "None";
 				case 1 -> "FixedSingle";
@@ -1144,6 +1215,7 @@ public final class Vb6WinFormsConverter {
 
 		// 起動時の配置方式を、WinFormsのStartPositionへ変換する。
 		if (s.getForm().hasProperty("StartUpPosition")) {
+			// 起動位置は0手動・1親の中央・2画面中央・3既定位置。それ以外は既定の位置とサイズ。
 			String start = switch (parseInteger(s.getForm().getProperty("StartUpPosition"), 0)) {
 				case 1 -> "CenterParent";
 				case 2 -> "CenterScreen";
@@ -1195,10 +1267,12 @@ public final class Vb6WinFormsConverter {
 	* @return VB.NETのPublicフィールド宣言
 	*/
 	private static String toPublicFieldDeclarations(String code) {
+		// 元VB6コードから抽出したPublicフィールドのVB.NET宣言文を蓄積する。
 		StringBuilder output = new StringBuilder();
 		Matcher matcher = Pattern.compile("(?m)^Public\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+As\\s+(Boolean|Integer|Long|String|Double|Single)\\s*$", Pattern.CASE_INSENSITIVE).matcher(code);
 		// 単純なPublicフィールド宣言を順に抽出し、VB.NETの宣言文へ変換する。
 		while (matcher.find()) {
+			// 正規表現のグループ1はフィールド名、グループ2は対応可能な基本型名。
 			output.append("    Public ").append(matcher.group(1)).append(" As ").append(matcher.group(2)).append("\r\n");
 		}
 		// 抽出できたPublicフィールドの宣言を連結して返し、該当がなければ空文字列を返す。
@@ -1221,6 +1295,7 @@ public final class Vb6WinFormsConverter {
 	* @return 座標監査CSV全文
 	*/
 	private static String toCoordinateAuditCsv(Vb6ConversionStateEntity s) {
+		// 元座標・変換後座標・親子関係などの監査CSV全文を蓄積する。
 		StringBuilder b = new StringBuilder();
 		appendLine(b, "VB6Type,VB6Name,WinFormsType,WinFormsField,VB6Parent,WinFormsParent,TabIndex,LeftTwips,TopTwips,WidthTwips,HeightTwips,PixelX,PixelY,PixelWidth,PixelHeight,Output");
 
@@ -1248,11 +1323,12 @@ public final class Vb6WinFormsConverter {
 	* @return 移行レポート全文
 	*/
 	private static String toMigrationReport(Vb6ConversionStateEntity s, Path source) {
+		// 変換条件・警告・未移植コードを記載する移行レポート全文を蓄積する。
 		StringBuilder b = new StringBuilder();
 		appendLine(b, "VB6 -> VB.NET WinForms 座標変換レポート");
 		appendLine(b, "入力: " + source.getFileName());
 		appendLine(b, "フォーム: " + s.getClassName());
-		appendLine(b, "DPI: " + s.getDpi() + " (1px = " + 1440.0 / s.getDpi() + " Twips)");
+		appendLine(b, "DPI: " + s.getDpi() + " (1px = " + TWIPS_PER_INCH / s.getDpi() + " Twips)");
 		appendLine(b, "フォームを含む定義数: " + s.getAll().size());
 		appendLine(b, "SSTab非表示座標補正数: " + s.getRemappedTabCount());
 		appendLine(b, "タブ割り当て推定数: " + s.getUnknownTabCount());
