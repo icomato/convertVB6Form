@@ -135,6 +135,7 @@ public final class Vb6WinFormsConverter {
 			throw new IOException("入力ファイルがありません: " + source);
 		}
 		// 引数は入力・出力の2個が必須で、3個目だけが省略可能なDPI。
+		// DPIの指定があればその値を読み取り、省略時は既定DPIを使う。
 		double dpi = args.length == 3 ? Double.parseDouble(args[2]) : DEFAULT_DPI;
 
 		// 座標換算に使えないDPIを拒否し、極端な拡大縮小や非有限値を防ぐ。
@@ -367,6 +368,7 @@ public final class Vb6WinFormsConverter {
 		// VB6のVB_Name（見つからなければフォーム名）を出力先のクラス名に採用。
 		Matcher classMatch = Pattern.compile("(?m)^Attribute VB_Name\\s*=\\s*\"([^\"]+)\"")
 		.matcher(s.getVb6Code());
+		// VB_Nameが見つかればその値を、見つからなければフォームの要素名をクラス名に使う。
 		s.setClassName(toSafeIdentifier(classMatch.find() ? classMatch.group(1) : s.getForm().getName()));
 
 		// フォームの座標単位が前提と異なる場合は、暫定換算であることを警告する。
@@ -376,7 +378,9 @@ public final class Vb6WinFormsConverter {
 
 		// 各ノードの識別子・出力型・座標を決定し、変換可否と追加確認事項を記録する。
 		for (Vb6FormNodeEntity n : s.getAll()) {
+			// Indexがあれば名前に(番号)を付け、なければ元の名前だけをVB6識別子に使う。
 			n.setId(n.getName() + (n.hasProperty("Index") ? "(" + parseInteger(n.getProperty("Index"), 0) + ")" : ""));
+			// Indexがあれば_番号を付け、なければ名前だけを安全で一意な出力フィールド名にする。
 			n.setField(toUniqueFieldName(s, toSafeIdentifier(n.getName() + (n.hasProperty("Index")
 			? "_" + parseInteger(n.getProperty("Index"), 0) : ""))));
 			n.setWinType(toWinFormsControlType(n.getVbType()));
@@ -508,6 +512,7 @@ public final class Vb6WinFormsConverter {
 						tab = siblings.iterator().next();
 					} else {
 						// 0は先頭、1は2枚目のタブ。負の退避座標は2枚目を候補とし、1枚構成なら先頭に収める。
+						// Leftが非負なら先頭タブ、負なら存在する範囲で2枚目のタブに推定配置する。
 						tab = n.getLeftTwips() >= 0 ? 0 : Math.min(1, ti.getCount() - 1);
 					}
 					inferred = true;
@@ -527,6 +532,7 @@ public final class Vb6WinFormsConverter {
 				}
 				// SSTabで非表示のタブを左へ追い出した大きな負座標だけを補正する。
 				// 通常の小さな負座標は意図的な位置として扱い、補正しない。
+				// 退避座標の境界より左なら補正量を加え、それ以外は元のLeftを維持する。
 				long correctedLeft = n.getLeftTwips() < HIDDEN_TAB_LEFT_THRESHOLD_TWIPS
 				? (long) n.getLeftTwips() + SSTAB_HIDE_TWIPS : n.getLeftTwips();
 
@@ -738,7 +744,7 @@ public final class Vb6WinFormsConverter {
 	* @return TrueまたはFalse
 	*/
 	private static String toVbBooleanLiteral(boolean value) {
-		// Javaの真偽値に対応する、VB.NETのTrueまたはFalseを返す。
+		// 値が真ならVB.NETのTrueを、偽ならFalseを返す。
 		return value ? "True" : "False";
 	}
 
@@ -856,6 +862,7 @@ public final class Vb6WinFormsConverter {
 			if (fontName.isEmpty()) {
 				fontName = "MS UI Gothic";
 			}
+			// Sizeが未設定なら既定ポイント数を使い、設定済みなら前後の空白を除いた値を使う。
 			String fontSize = font.getProperty("Size") == null ? DEFAULT_FONT_SIZE_POINTS : font.getProperty("Size").trim();
 			try {
 				new BigDecimal(fontSize);
@@ -883,6 +890,7 @@ public final class Vb6WinFormsConverter {
 			if (isVbTrue(font.getProperty("Strikethrough"))) {
 				styles.add("System.Drawing.FontStyle.Strikeout");
 			}
+			// 装飾がなければRegularを使い、あれば指定された装飾をOrで連結する。
 			String style = styles.isEmpty() ? "System.Drawing.FontStyle.Regular" : String.join(" Or ", styles);
 			// Charset未指定時の0はANSI文字セット。CByteの範囲に収めて生成する。
 			int charset = parseInteger(font.getProperty("Charset"), 0);
@@ -915,6 +923,7 @@ public final class Vb6WinFormsConverter {
 				// 固定文字のラベルはWinForms側で文字幅・高さに合わせる。
 				// VB6側にAutoSize指定があればその指定を優先する。
 				// 実行時に値を書き換える空Captionのラベルは固定サイズを維持する。
+				// AutoSizeが明示されていればその値を優先し、未指定なら固定文字かつ折り返しなしの場合だけ有効にする。
 				boolean autoSize = n.hasProperty("AutoSize")
 				? isVbTrue(n.getProperty("AutoSize"))
 				: !parseVbString(n.getProperty("Caption")).isBlank() && !isVbTrue(n.getProperty("WordWrap"));
@@ -985,6 +994,7 @@ public final class Vb6WinFormsConverter {
 				}
 			}
 			case "VB.Image" -> {
+				// Stretchが真なら画像を枠に合わせて伸縮し、偽なら元のサイズで表示する。
 				String mode = isVbTrue(n.getProperty("Stretch")) ? "StretchImage" : "Normal";
 				appendPropertyAssignment(out, n, "SizeMode", "System.Windows.Forms.PictureBoxSizeMode." + mode);
 			}
@@ -1301,13 +1311,18 @@ public final class Vb6WinFormsConverter {
 
 		// 各ノードの変換前後の座標と親子関係を、一件ずつ監査CSVに記録する。
 		for (Vb6FormNodeEntity n : s.getAll()) {
+			// 親ノードがない場合はCSVを空欄にし、ある場合は元の親の識別子を記録する。
 			String parent = n.getParent() == null ? "" : n.getParent().getId();
+			// 解決済みの親名があればそれを使い、なければ元の親のフィールド名、親もなければ空欄を使う。
 			String resolved = n.getResolvedParent().isEmpty() ? (n.getParent() == null ? "" : n.getParent().getField()) : n.getResolvedParent();
 			String[] v = {
+				// WinForms型が未対応でnullの場合は、文字列nullを出さずCSVの型名を空欄にする。
 				n.getVbType(), n.getId(), n.getWinType() == null ? "" : n.getWinType(), n.getField(), parent, resolved,
+				// タブ番号が負なら未所属として空欄にし、0以上ならその番号を記録する。
 				n.getTabIndex() < 0 ? "" : Integer.toString(n.getTabIndex()),
 				Integer.toString(n.getLeftTwips()), Integer.toString(n.getTopTwips()), Integer.toString(n.getWidthTwips()), Integer.toString(n.getHeightTwips()),
 				Integer.toString(n.getPixelLeft()), Integer.toString(n.getPixelTop()), Integer.toString(n.getPixelWidth()), Integer.toString(n.getPixelHeight()),
+				// 対応済みのコントロールはYES、未対応のコントロールはNOとして記録する。
 				n.isSupported() ? "YES" : "NO"
 			};
 			appendLine(b, String.join(",", Arrays.stream(v).map(Vb6WinFormsConverter::toCsvField).toList()));
