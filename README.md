@@ -8,6 +8,7 @@
 - `ReportWindow.vb`：`InitializeComponent()` を呼ぶフォームのコードビハインド（既存ファイルは上書きしません）。
 - `Program.vb`：アプリケーションのエントリポイント（既存ファイルは上書きしません）。
 - `ReportWindow_Migrated.vbproj`：.NET 8 Windows Forms のVisual Studio用プロジェクト（既存ファイルは上書きしません）。
+- `ReportWindow_Migrated.slnx`：上記のVB.NETプロジェクトを相対パスで参照するXMLソリューション（既存ファイルは上書きしません）。
 - `ReportWindow_coordinate_audit.csv`：元のTwips座標、変換後ピクセル座標、タブ所属の確認用CSV。
 - `ReportWindow_migration_report.txt`：未移行項目、タブ所属の推定、コントロール配列の変更など。
 - `convertVB6Form.log`：変換成功時の出力先・件数など、標準出力と同じ完了メッセージを日時・INFOレベル付きで記録するUTF-8ログ。指定した出力フォルダに作成し、再実行時は追記します。
@@ -256,9 +257,12 @@ java -Dfile.encoding=UTF-8 -cp bin Vb6WinFormsConverter ReportWindowCoorsDummy.f
 
 ## Visual Studioで画面を開く
 
-Windowsで .NET 8 SDK と Visual Studio 2022 の「.NET デスクトップ開発」ワークロードを用意します。
+WindowsでVisual Studio 2022 17.14以降の「.NET デスクトップ開発」ワークロードと、.NET 8のWindowsデスクトップ開発環境を用意します。
+`.slnx`は[Visual Studio 17.14で正式サポート](https://devblogs.microsoft.com/dotnet/introducing-slnx-support-dotnet-cli/)されています。
+コマンドラインで`.slnx`を扱う場合は.NET SDK 9.0.200以降を使用します。生成プロジェクトのターゲットは引き続き`net8.0-windows`です。
+生成した`.slnx`と添付サンプルは.NET SDK 10.0.403の`dotnet sln <ファイル名.slnx> list`で読み込み・プロジェクト参照を確認しています。
 
-1. `sample/ReportWindow_Migrated.vbproj` を開く、または同等のVB.NET Windows Formsプロジェクトへ `.vb` と `.Designer.vb` を追加します。
+1. 生成した`ReportWindow_Migrated.slnx`（添付例は`sample/ReportWindow_Migrated.slnx`）を**File → Open → Project/Solution**で開きます。`.vbproj`を直接開くこともできます。
 2. `ReportWindow.vb` をフォームとして開き、デザイナー画面と5タブの配置を確認します。
 3. `ReportWindow_migration_report.txt` の警告を検討し、必要な画像・COM相当機能・イベント処理を移植します。
 4. `dotnet build` でビルドします（本資料作成環境ではVB.NETの実コンパイルまでは確認していません）。

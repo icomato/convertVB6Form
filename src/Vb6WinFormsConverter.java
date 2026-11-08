@@ -174,6 +174,7 @@ public final class Vb6WinFormsConverter {
 		Path designer = out.resolve(st.getClassName() + ".Designer.vb");
 		Path codeBehind = out.resolve(st.getClassName() + ".vb");
 		Path project = out.resolve(st.getClassName() + "_Migrated.vbproj");
+		Path solution = out.resolve(st.getClassName() + "_Migrated.slnx");
 		Path program = out.resolve("Program.vb");
 		Path audit = out.resolve(st.getClassName() + "_coordinate_audit.csv");
 		Path report = out.resolve(st.getClassName() + "_migration_report.txt");
@@ -233,6 +234,11 @@ public final class Vb6WinFormsConverter {
 			"  </ItemGroup>\r\n" +
 			"</Project>\r\n", StandardCharsets.UTF_8);
 		}
+
+		// 既存のソリューションに追加されたプロジェクトや設定を保護し、新規の場合だけ生成する。
+		if (!Files.exists(solution)) {
+			Files.writeString(solution, toSolutionSource(project), StandardCharsets.UTF_8);
+		}
 		// 移行結果の検証用データと警告レポートは毎回更新する。
 		Files.writeString(audit, toCoordinateAuditCsv(st), StandardCharsets.UTF_8);
 		Files.writeString(report, toMigrationReport(st, source), StandardCharsets.UTF_8);
@@ -250,6 +256,7 @@ public final class Vb6WinFormsConverter {
 			printInfo(logger, "出力: " + designer);
 			printInfo(logger, "コードビハインド: " + codeBehind);
 			printInfo(logger, "Visual Studioプロジェクト: " + project);
+			printInfo(logger, "Visual Studioソリューション: " + solution);
 			printInfo(logger, "座標CSV: " + audit);
 			printInfo(logger, "移行レポート: " + report);
 			printInfo(logger, "コントロール: " + st.getAll().size() + " (出力 " + st.getVisualCount()
@@ -259,6 +266,22 @@ public final class Vb6WinFormsConverter {
 			logger.removeHandler(fileHandler);
 			fileHandler.close();
 		}
+	}
+
+	/**
+	* 同じ出力フォルダ内のVB.NETプロジェクトを参照するXMLソリューションを生成する。
+	* プロジェクトを相対パスで記録し、フォルダを移動しても参照できるようにする。
+	* @param project ソリューションに登録するVB.NETプロジェクトのパス
+	* @return SLNX形式のソリューション全文
+	*/
+	private static String toSolutionSource(Path project) {
+		// XML属性に埋め込むため、ファイル名の特殊文字をエスケープする。
+		String projectFile = project.getFileName().toString()
+		.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+		// 生成したVB.NETプロジェクトを1件含む、最小構成のXMLソリューションを返す。
+		return "<Solution>\r\n"
+		+ "  <Project Path=\"" + projectFile + "\" />\r\n"
+		+ "</Solution>\r\n";
 	}
 
 	/**
