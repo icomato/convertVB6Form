@@ -70,6 +70,15 @@ Windowsで .NET 8 SDK と Visual Studio 2022 の「.NET デスクトップ開発
 3. `ReportWindow_migration_report.txt` の警告を検討し、必要な画像・COM相当機能・イベント処理を移植します。
 4. `dotnet build` でビルドします（本資料作成環境ではVB.NETの実コンパイルまでは確認していません）。
 
+## ラベルの表示サイズについて
+
+VB6とWinFormsではフォントの描画領域や文字の余白が異なります。TwipsをPixelに単純換算しただけでは、例えば「郵便番号：」などの文字が切れる場合があります。
+
+- **固定文字のLabel**（.frmでCaptionに文字が設定されているもの）は、既定でWinFormsの`AutoSize=True`を生成します。文字幅と高さが自動調整されます。
+- **可変表示用のLabel**（Captionが空のもの）は`AutoSize=False`のままにし、元の固定サイズを保持します。
+- VB6側で`AutoSize`が明示されている場合、その設定を優先します。折り返し表示（`WordWrap`）のラベルは既定では固定サイズを維持します。
+- 文字が広がる分、隣のコントロールと重なる可能性はあります。特に日本語の長いラベルと狭い入力欄はVisual Studioで目視確認してください。
+
 ## 座標変換仕様
 
 - 標準Twipsの場合：`pixels = round(twips × dpi ÷ 1440)`、96DPIでは `pixels = round(twips ÷ 15)`。

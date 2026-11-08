@@ -478,7 +478,13 @@ public final class Vb6WinFormsConverter {
         // コントロール固有のVB6プロパティをWinFormsの対応プロパティに変換。
         switch (n.vbType) {
             case "VB.Label" -> {
-                set(out, n, "AutoSize", "False");
+                // 固定文字のラベルはWinForms側で文字幅・高さに合わせる。
+                // VB6側にAutoSize指定があればその指定を優先する。
+                // 実行時に値を書き換える空Captionのラベルは固定サイズを維持する。
+                boolean autoSize = n.has("AutoSize")
+                        ? vbTrue(n.prop("AutoSize"))
+                        : !strValue(n.prop("Caption")).isBlank() && !vbTrue(n.prop("WordWrap"));
+                set(out, n, "AutoSize", bool(autoSize));
                 if (n.has("Alignment")) set(out, n, "TextAlign", switch (integer(n.prop("Alignment"), 0)) {
                     case 1 -> "System.Drawing.ContentAlignment.MiddleRight";
                     case 2 -> "System.Drawing.ContentAlignment.MiddleCenter";
