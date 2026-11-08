@@ -41,6 +41,110 @@
 
 Eclipseでは`Ctrl+Shift+F`で整形できます。プロジェクトの`.settings/org.eclipse.jdt.core.prefs`と`.editorconfig`に4スペース・UTF-8の設定を登録しています。
 
+### Eclipse用Checkstyle（共有lint）
+
+`checkstyle.xml`が規則本体、`.checkstyle`がプロジェクト相対の参照と対象範囲（`src/**/*.java`）です。
+`.project`にもCheckstyleのbuilder/natureを登録しているため、プラグイン導入後は共有設定で検査できます。
+個人の絶対パスやワークスペース設定をGitに登録する必要はありません。Javaアプリ自体に依存ライブラリは追加していません。
+
+#### プラグインの導入
+
+2026-11-08確認時点の[Eclipse Checkstyle Plugin最新リリースは14.0.0](https://github.com/checkstyle/eclipse-cs/releases/tag/14.0.0)です。
+本設定は同梱エンジンに合わせて**Checkstyle 14.0.0**で検証しています。
+Checkstyle本体とEclipseプラグインはリリース周期が異なるため、番号を混同しないでください。
+
+1. Eclipseを**Java 21以上**で起動できる環境を用意します。プラグイン14.0.0の
+   [公式manifest](https://github.com/checkstyle/eclipse-cs/blob/14.0.0/net.sf.eclipsecs.checkstyle/META-INF/MANIFEST.MF)
+   は`JavaSE-21`を要求します。Eclipse自体がさらに新しいJavaを要求する版では、その要求にも従います。
+   必要なら`eclipse.ini`の`-vmargs`より前に`-vm`とJDKの`bin/javaw.exe`の絶対パスを別々の行で指定します。
+   **Eclipseを動かすJavaと、プロジェクトのJavaは別です。** 本プロジェクトのJRE System Libraryは`JavaSE-17`、compiler complianceは17を維持します。
+2. **Help → Eclipse Marketplace...** で`Checkstyle`または`Checkstyle Plug-in`を検索し、**Checkstyle Plug-in**の**Install**を選びます。
+3. インストール内容・ライセンス等を確認して完了し、Eclipseを再起動します。
+4. **Help → About Eclipse IDE → Installation Details**でインストールされたプラグインのバージョンを確認します。
+
+[公式の導入案内](https://github.com/checkstyle/eclipse-cs#installation)は最新版にMarketplaceを案内しています。
+Marketplaceが使えない場合は**Help → Install New Software... → Add...**で名前`Checkstyle`、
+Location **`https://checkstyle.org/eclipse-cs-update-site/`**を登録してインストールします。
+特定の旧版が必要な場合だけ、**Show only the latest versions of available software**を外して版を選びます。
+古い記事のSourceForge更新URLは使いません。Java 17でEclipseを起動する必要がある環境では、最新版14.0.0は利用できません。
+旧プラグインへの適合性は未検証のため、まずEclipseの起動Javaを更新してください。
+
+#### このプロジェクトで有効化する（推奨）
+
+1. プラグイン導入後にプロジェクトを取り込みます。既に開いている場合は更新（**Refresh**）します。
+2. プロジェクトを右クリックし**Properties → Checkstyle**を開きます。
+3. **Local Check Configurations**に`Future Java (project)`があることを確認します。
+   設定ファイルはプロジェクト内の`checkstyle.xml`です。
+4. メイン画面の検査設定に`Future Java (project)`が選択され、**Checkstyle active for this project**がオンであることを確認し、**Apply and Close**します。
+   `.checkstyle`の検査対象は`src/`配下のJavaソースです。`build/`内の検証データや生成物は対象にしません。
+5. **Project → Build Automatically**をオンにします。初回はプロジェクトを右クリックし**Checkstyle → Check Code with Checkstyle**で全体を検査します。
+6. **Window → Show View → Problems**で警告を確認します。警告をダブルクリックすると該当行へ移動できます。
+
+共有設定が表示されない場合は、Properties → Checkstyle → Local Check Configurations → **New...**で
+Type **Project Relative Configuration**を選び、名前`Future Java (project)`、Locationは**Browse...**から
+`/convertVB6Form/checkstyle.xml`を選択します。その後、メイン画面でその設定を選んで有効化してください。
+設定ファイルの保護をオンにし、GUIによる規則の書き換えを防ぐことを推奨します。
+
+#### 外部の設定ファイルとして取り込む場合
+
+別プロジェクトから同じ規則を使う場合は、**Window → Preferences → Checkstyle → New...**で
+Type **External Configuration**、任意の名前、Locationに`checkstyle.xml`の**絶対パス**を指定し、**OK → Apply and Close**します。
+次に対象プロジェクトの**Properties → Checkstyle**でその名前を選び、**Checkstyle active for this project**をオンにします。
+External Configurationはファイルをコピーせず参照します。移動・削除すると参照できなくなります。
+チーム共有では本リポジトリのProject Relative Configurationを使ってください。
+Internal Configurationの**Import...**はコピーの取り込みなので、元ファイルの更新には追従しません。
+詳細は[公式設定種別ガイド](https://checkstyle.org/eclipse-cs/#!/configtypes)と
+[プロジェクト設定ガイド](https://checkstyle.org/eclipse-cs/#!/project-setup)を参照してください。
+
+#### 適用規則と意図的な制限
+
+Future規約の完全な自動判定ではなく、機械的に検査できる部分を選んだプロジェクト用設定です。
+すべてwarningとして表示します。警告を無視してよいという意味ではありません。
+
+| 対象 | 自動検査 |
+| --- | --- |
+| 命名 | 型・メソッド・フィールド・定数・引数・ローカル変数・存在するパッケージの命名形式 |
+| 構造 | トップレベル型は1ファイル1型、ファイル名と型名の一致、内部・ローカル・匿名型の禁止（プロジェクト独自要件） |
+| import・宣言 | ワイルドカード・重複・未使用import、フィールドの公開制限、修飾子順序・冗長修飾子 |
+| 書式・基本品質 | 制御文の波括弧、波括弧位置、1行1文、演算子やカンマ等の空白、空文、boolean比較の簡略化、equals/hashCodeの対 |
+| Javadoc | private・packageを含む型・メソッド・コンストラクタの存在、型のauthor/version、引数・戻り値・明示した例外のタグ |
+
+- **日本語Javadoc、内容の正しさ、`@since`、フィールド説明はレビューで確認**します。日本語文字の有無だけでは説明品質を判定できません。
+  `@throws`は宣言・明示的なthrowを確認しますが、呼び出し先から伝播するすべての例外や型の継承関係まで解決しません。
+- **デフォルトパッケージは既存の起動コマンドとの互換性のため維持**します。`PackageDeclaration`は有効にしていません。
+- **原文のインデントは「空白文字4文字分のTab」ですが、本プロジェクトは既存の4スペースを維持**します。
+  複雑なswitch式や継続行への大量の警告を避けるため、`Indentation`やタブ禁止は強制せず、Eclipseの共有formatter設定で整えます。
+- **長い行の数値上限、メソッド長、循環的複雑度、MagicNumber、全引数final、ユーティリティクラス化の強制は採用しません。**
+  規約にない一律の数値制限や、座標変換・生成文字列への過剰な警告を避けます。長い生成文字列も読みやすさはレビューします。
+- 不等号の左向き統一、インターフェース型の選択、命名の意味、適切なfinal、例外設計、リソース管理、非推奨APIの使用などは、
+  型解決や設計判断が必要なためこのlintだけでは網羅しません。未使用のローカル変数や非推奨APIはEclipseのJavaコンパイラ警告も併用します。
+- `HiddenField`はローカル変数・コンストラクタ等への誤警告や規約の例外との調整が必要なため採用せず、引数とフィールドの衝突はレビューします。
+  getter/setterや`to...`の意味も正規表現だけでは強制しません。
+- 追加プラグイン専用の独自チェックやソース全体の抑制設定は使っていません。設定変更時は以下の検知テストを再実行してください。
+
+#### コマンドラインでの再検証
+
+Java 21以上と[Checkstyle 14.0.0公式リリース](https://github.com/checkstyle/checkstyle/releases/tag/checkstyle-14.0.0)の
+`checkstyle-14.0.0-all.jar`を用意します。アプリの実行には不要です。通常の（依存を含まない）JARだけでは動きません。
+
+```bash
+# Git Bash / Linux等。パスは手元の配置に合わせる
+export CHECKSTYLE_CLASSPATH=/absolute/path/checkstyle-14.0.0-all.jar
+bash tests/checkstyle_test.sh
+bash tests/smoke_test.sh
+```
+
+Windows PowerShellから直接lintを実行する場合は次のとおりです（`java`がJava 21以上であること）。
+
+```powershell
+java -cp C:\tools\checkstyle-14.0.0-all.jar com.puppycrawl.tools.checkstyle.Main -c checkstyle.xml -f xml -o checkstyle-result.xml src
+```
+
+warningはCLI終了コードが0でも発生し得るため、結果XMLに`<error ... severity="warning" ...>`がないことも確認します。
+`tests/checkstyle_test.sh`は既存4ソースの違反0件に加え、意図的な違反を検出すること、内部・ローカル・匿名クラスをすべて検出することを確認します。
+2026-11-08にCheckstyle 14.0.0／Java 21でlint検知テストと`--release 17`によるビルド・変換スモークテストを実行し、いずれも成功しました。
+Eclipse画面上の操作はこの検証環境では実行しておらず、共有設定の読込形式と手順はプラグイン14.0.0の公式実装・資料で確認しています。
+
 ### スモークテスト
 
 外部ライブラリを使わず、最小限のVB6フォームを生成して変換結果を確認できます。

@@ -61,6 +61,7 @@ public final class Vb6WinFormsConverter {
      * VB6フォームを読み込んでVB.NET WinFormsのデザイナーと検証用資料を生成する。
      * 使用方法: java -cp bin Vb6WinFormsConverter input.frm output_dir [dpi]。既存のコードビハインドは上書きしない。
      * @param args 入力.frm、出力ディレクトリ、省略可能なDPI（既定値96）
+     * @throws IllegalArgumentException DPIが数値でないか、48～768の有限値でない場合
      * @throws IOException .frmの読み込み、解析、または出力ファイル作成に失敗した場合
      */
     public static void main(String[] args) throws IOException {
@@ -191,19 +192,19 @@ public final class Vb6WinFormsConverter {
             } else if (nested.matches()) {
                 Vb6FormNode parent = stack.peek();
                 if (parent == null) {
-                    throw new IOException("BeginPropertyの親がありません (行 " + (i+1) + ")");
+                    throw new IOException("BeginPropertyの親がありません (行 " + (i + 1) + ")");
                 }
                 Vb6FormNode node = new Vb6FormNode("property", "", nested.group(1), parent);
                 parent.getNested().put(node.getName(), node);
                 stack.push(node);
             } else if (line.equals("End") || line.equals("EndProperty")) {
                 if (stack.isEmpty()) {
-                    throw new IOException("Endの数が不正です (行 " + (i+1) + ")");
+                    throw new IOException("Endの数が不正です (行 " + (i + 1) + ")");
                 }
                 Vb6FormNode popped = stack.pop();
                 if (line.equals("End") && !popped.getKind().equals("control") ||
                 line.equals("EndProperty") && !popped.getKind().equals("property")) {
-                    throw new IOException("Begin/Endの対応が不正です (行 " + (i+1) + ")");
+                    throw new IOException("Begin/Endの対応が不正です (行 " + (i + 1) + ")");
                 }
             } else if (!stack.isEmpty()) {
                 Matcher prop = PROPERTY.matcher(line);
@@ -342,14 +343,14 @@ public final class Vb6WinFormsConverter {
                 // SSTabで非表示のタブを左へ追い出した大きな負座標だけを補正する。
                 // 通常の小さな負座標は意図的な位置として扱い、補正しない。
                 long correctedLeft = n.getLeftTwips() < -10000
-                ? (long)n.getLeftTwips() + SSTAB_HIDE_TWIPS : n.getLeftTwips();
+                ? (long) n.getLeftTwips() + SSTAB_HIDE_TWIPS : n.getLeftTwips();
                 if (correctedLeft != n.getLeftTwips()) {
                     s.incrementRemappedTabCount();
                 }
                 n.setPixelLeft(toPixels(correctedLeft, s.getDpi()));
                 // VB6ではタブ見出し基準、WinForms TabPageでは内容領域基準なので、
                 // TabHeightを引いてY座標を揃える。
-                long correctedTop = (long)n.getTopTwips() - ti.getTabHeightTwips();
+                long correctedTop = (long) n.getTopTwips() - ti.getTabHeightTwips();
                 // Some VB6 controls begin slightly above the tab header baseline.
                 if (correctedTop < 0 && correctedTop > -200) {
                     correctedTop = 0;
@@ -446,7 +447,7 @@ public final class Vb6WinFormsConverter {
      * @return 四捨五入したピクセル値
      */
     private static int toPixels(long twips, double dpi) {
-        return (int)Math.round(twips * dpi / 1440.0);
+        return (int) Math.round(twips * dpi / 1440.0);
     }
     /**
      * VB6文字列リテラルを取り出し、二重の引用符を元に戻す。
@@ -465,7 +466,7 @@ public final class Vb6WinFormsConverter {
         for (int i = 1; i < t.length(); i++) {
             char c = t.charAt(i);
             if (c == '"') {
-                if (i+1 < t.length() && t.charAt(i+1) == '"') {
+                if (i + 1 < t.length() && t.charAt(i + 1) == '"') {
                     b.append('"');
                     i++;
                 } else {
@@ -727,7 +728,7 @@ public final class Vb6WinFormsConverter {
         }
         long value = Long.parseUnsignedLong(m.group(1), 16);
         if ((value & 0xFF000000L) == 0x80000000L) {
-            return switch ((int)(value & 0xFF)) {
+            return switch ((int) (value & 0xFF)) {
                 case 5 -> "System.Drawing.SystemColors.Window";
                 case 8 -> "System.Drawing.SystemColors.WindowText";
                 case 15 -> "System.Drawing.SystemColors.Control";
@@ -735,7 +736,7 @@ public final class Vb6WinFormsConverter {
                 default -> null;
             };
         }
-        int b = (int)((value >> 16) & 255), g = (int)((value >> 8) & 255), r = (int)(value & 255);
+        int b = (int) ((value >> 16) & 255), g = (int) ((value >> 8) & 255), r = (int) (value & 255);
         return "System.Drawing.Color.FromArgb(" + r + ", " + g + ", " + b + ")";
     }
     /**
@@ -903,7 +904,7 @@ public final class Vb6WinFormsConverter {
             String parent = n.getParent() == null ? "" : n.getParent().getId();
             String resolved = n.getResolvedParent().isEmpty() ? (n.getParent() == null ? "" : n.getParent().getField()) : n.getResolvedParent();
             String[] v = {
-                n.getVbType(), n.getId(), n.getWinType()==null ? "" : n.getWinType(), n.getField(), parent, resolved,
+                n.getVbType(), n.getId(), n.getWinType() == null ? "" : n.getWinType(), n.getField(), parent, resolved,
                 n.getTabIndex() < 0 ? "" : Integer.toString(n.getTabIndex()),
                 Integer.toString(n.getLeftTwips()), Integer.toString(n.getTopTwips()), Integer.toString(n.getWidthTwips()), Integer.toString(n.getHeightTwips()),
                 Integer.toString(n.getPixelLeft()), Integer.toString(n.getPixelTop()), Integer.toString(n.getPixelWidth()), Integer.toString(n.getPixelHeight()),
