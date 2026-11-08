@@ -304,6 +304,7 @@ public final class Vb6WinFormsConverter {
 		if (codeStart < lines.length) {
 			s.setVb6Code(String.join("\n", Arrays.copyOfRange(lines, codeStart, lines.length)));
 		}
+		// コントロール階層と元のVB6コードを含む解析結果を、後続の変換処理へ渡す。
 		return s;
 	}
 
@@ -509,9 +510,11 @@ public final class Vb6WinFormsConverter {
 	private static String toUniqueFieldName(Vb6ConversionStateEntity s, String requested) {
 		String name = requested;
 		int i = 2;
+		// 大文字小文字を区別しない名前の登録に成功するまで、連番付きの候補を試す。
 		while (!s.getUsedFields().add(name.toLowerCase(Locale.ROOT))) {
 			name = requested + "_" + i++;
 		}
+		// 使用済み名称との重複を解消し、登録できたフィールド名を返す。
 		return name;
 	}
 
@@ -539,6 +542,7 @@ public final class Vb6WinFormsConverter {
 		if (keywords.contains(result)) {
 			result = "ctl_" + result;
 		}
+		// 使用できない文字・先頭の数字・予約語を処理した識別子を返す。
 		return result;
 	}
 
@@ -550,6 +554,7 @@ public final class Vb6WinFormsConverter {
 	* 非対応ならnull
 	*/
 	private static String toWinFormsControlType(String type) {
+		// VB6の型に対応するWinForms型を返し、未対応の型にはnullを返す。
 		return switch (type) {
 			case "VB.Form" -> "System.Windows.Forms.Form";
 			case "TabDlg.SSTab" -> "System.Windows.Forms.TabControl";
@@ -583,11 +588,14 @@ public final class Vb6WinFormsConverter {
 
 		// 未設定の数値属性には、呼び出し元が指定した既定値を使う。
 		if (value == null) {
+			// 属性が未設定の場合は、呼び出し元が指定した既定値を返す。
 			return fallback;
 		}
 		try {
+			// 末尾のVB6コメントと前後の空白を除き、整数として読み取った値を返す。
 			return Integer.parseInt(value.split("\\s+'", 2)[0].trim());
 		} catch (NumberFormatException ex) {
+			// 整数として解釈できない値は、呼び出し元が指定した既定値に置き換える。
 			return fallback;
 		}
 	}
@@ -600,6 +608,7 @@ public final class Vb6WinFormsConverter {
 	* @return 四捨五入したピクセル値
 	*/
 	private static int toPixels(long twips, double dpi) {
+		// Twipsを指定DPIで換算し、最も近い整数ピクセル値を返す。
 		return (int) Math.round(twips * dpi / 1440.0);
 	}
 
@@ -613,12 +622,14 @@ public final class Vb6WinFormsConverter {
 
 		// 未設定の文字列属性を空文字列として扱い、後続の文字列処理を簡潔にする。
 		if (vbValue == null) {
+			// 未設定の文字列属性は、後続処理で扱える空文字列として返す。
 			return "";
 		}
 		String t = vbValue.trim();
 
 		// 引用符で囲まれていない値は、末尾のVB6コメントを除いて返す。
 		if (!t.startsWith("\"")) {
+			// 引用符で囲まれていない値は、末尾のVB6コメントを除いて返す。
 			return t.split("\\s+'", 2)[0];
 		}
 		StringBuilder b = new StringBuilder();
@@ -641,6 +652,7 @@ public final class Vb6WinFormsConverter {
 				b.append(c);
 			}
 		}
+		// 終端まで読み取り、二重引用符のエスケープを復元した文字列を返す。
 		return b.toString();
 	}
 
@@ -650,6 +662,7 @@ public final class Vb6WinFormsConverter {
 	* @return VB.NET文字列式
 	*/
 	private static String toVbStringLiteral(String javaString) {
+		// 引用符と改行をVB.NETで表現できる形に置き換えた文字列式を返す。
 		return "\"" + javaString.replace("\"", "\"\"").replace("\r", "")
 		.replace("\n", "\" & vbCrLf & \"") + "\"";
 	}
@@ -660,6 +673,7 @@ public final class Vb6WinFormsConverter {
 	* @return 非ゼロならtrue
 	*/
 	private static boolean isVbTrue(String value) {
+		// VB6の数値が0以外なら真とし、未設定や不正値は偽として返す。
 		return parseInteger(value, 0) != 0;
 	}
 
@@ -669,6 +683,7 @@ public final class Vb6WinFormsConverter {
 	* @return TrueまたはFalse
 	*/
 	private static String toVbBooleanLiteral(boolean value) {
+		// Javaの真偽値に対応する、VB.NETのTrueまたはFalseを返す。
 		return value ? "True" : "False";
 	}
 
@@ -678,6 +693,7 @@ public final class Vb6WinFormsConverter {
 	* @return Me.フィールド名
 	*/
 	private static String toControlReference(String n) {
+		// フィールド名にMe.を付け、生成コードで使うコントロール参照を返す。
 		return "Me." + n;
 	}
 
@@ -687,6 +703,7 @@ public final class Vb6WinFormsConverter {
 	* @return フォームならMe、子ならMe.フィールド名
 	*/
 	private static String toPropertyTarget(Vb6FormNodeEntity n) {
+		// フォーム自身への代入はMeを使い、子コントロールにはフィールド参照を返す。
 		return "VB.Form".equals(n.getVbType()) ? "Me" : toControlReference(n.getField());
 	}
 
@@ -716,6 +733,7 @@ public final class Vb6WinFormsConverter {
 	* @return 非表示コンポーネントならtrue
 	*/
 	private static boolean isNonVisual(Vb6FormNodeEntity n) {
+		// 変換先の型が、画面上に配置しないImageListまたはOpenFileDialogかを返す。
 		return n.getWinType() != null && (n.getWinType().endsWith(".ImageList") || n.getWinType().endsWith(".OpenFileDialog"));
 	}
 
@@ -730,11 +748,13 @@ public final class Vb6WinFormsConverter {
 
 		// 未対応ノードとフォーム本体は、子コントロール用の属性出力から除外する。
 		if (!n.isSupported() || n == s.getForm()) {
+			// 未対応ノードとフォーム本体は、子コントロール用の属性を出力せず終了する。
 			return;
 		}
 
 		// ImageListなどの非表示部品には、位置やサイズなどの画面属性を出力しない。
 		if (isNonVisual(n)) {
+			// 非表示部品には画面上の位置やサイズを設定せず、属性出力を終了する。
 			return;
 		}
 		appendPropertyAssignment(out, n, "Name", toVbStringLiteral(n.getField()));
@@ -955,18 +975,21 @@ public final class Vb6WinFormsConverter {
 
 		// 色の指定がない場合は変換結果を返さず、既定の表示色を維持する。
 		if (raw == null) {
+			// 色の指定がないことをnullで示し、呼び出し元で既定色を維持できるようにする。
 			return null;
 		}
 		Matcher m = Pattern.compile("&H([0-9A-Fa-f]{1,8})&?").matcher(raw.trim());
 
 		// 対応する16進OLE_COLOR形式でない値は、生成コードに出力しない。
 		if (!m.find()) {
+			// 対応する16進形式でない色は、変換不可を示すnullとして返す。
 			return null;
 		}
 		long value = Long.parseUnsignedLong(m.group(1), 16);
 
 		// システム色を示す識別値なら、対応するSystemColorsの式を返す。
 		if ((value & 0xFF000000L) == 0x80000000L) {
+			// 対応済みのシステム色の式を返し、未対応のシステム色にはnullを返す。
 			return switch ((int) (value & 0xFF)) {
 				case 5 -> "System.Drawing.SystemColors.Window";
 				case 8 -> "System.Drawing.SystemColors.WindowText";
@@ -976,6 +999,7 @@ public final class Vb6WinFormsConverter {
 			};
 		}
 		int b = (int) ((value >> 16) & 255), g = (int) ((value >> 8) & 255), r = (int) (value & 255);
+		// BGRの各成分をRGB順に並べ、WinFormsの色生成式として返す。
 		return "System.Drawing.Color.FromArgb(" + r + ", " + g + ", " + b + ")";
 	}
 
@@ -1160,6 +1184,7 @@ public final class Vb6WinFormsConverter {
 			}
 		}
 		appendLine(out, "End Class");
+		// コントロールの生成・属性・親子関係・フィールド宣言を含むDesigner全文を返す。
 		return out.toString();
 	}
 
@@ -1172,9 +1197,11 @@ public final class Vb6WinFormsConverter {
 	private static String toPublicFieldDeclarations(String code) {
 		StringBuilder output = new StringBuilder();
 		Matcher matcher = Pattern.compile("(?m)^Public\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+As\\s+(Boolean|Integer|Long|String|Double|Single)\\s*$", Pattern.CASE_INSENSITIVE).matcher(code);
+		// 単純なPublicフィールド宣言を順に抽出し、VB.NETの宣言文へ変換する。
 		while (matcher.find()) {
 			output.append("    Public ").append(matcher.group(1)).append(" As ").append(matcher.group(2)).append("\r\n");
 		}
+		// 抽出できたPublicフィールドの宣言を連結して返し、該当がなければ空文字列を返す。
 		return output.toString();
 	}
 
@@ -1184,6 +1211,7 @@ public final class Vb6WinFormsConverter {
 	* @return CSV用にエスケープした値
 	*/
 	private static String toCsvField(String value) {
+		// 内部の引用符を二重化し、全体を引用符で囲んだCSVフィールドを返す。
 		return "\"" + value.replace("\"", "\"\"") + "\"";
 	}
 
@@ -1209,6 +1237,7 @@ public final class Vb6WinFormsConverter {
 			};
 			appendLine(b, String.join(",", Arrays.stream(v).map(Vb6WinFormsConverter::toCsvField).toList()));
 		}
+		// すべてのノードの変換前後の座標と親子関係を記録した監査CSVを返す。
 		return b.toString();
 	}
 
@@ -1251,6 +1280,7 @@ public final class Vb6WinFormsConverter {
 		appendLine(b, "");
 		appendLine(b, "=== 元.frm内のコード（参考・未移植） ===");
 		appendLine(b, s.getVb6Code());
+		// 変換条件・警告・参考用の元コードをまとめた移行レポートを返す。
 		return b.toString();
 	}
 }

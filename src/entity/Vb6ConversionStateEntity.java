@@ -100,6 +100,7 @@ public final class Vb6ConversionStateEntity {
 	*/
 	@Override
 	public boolean equals(Object other) {
+		// 属性の値では比較せず、同じインスタンスである場合だけ真を返す。
 		return this == other;
 	}
 
@@ -109,6 +110,7 @@ public final class Vb6ConversionStateEntity {
 	*/
 	@Override
 	public int hashCode() {
+		// 属性の変更や循環参照に影響されない、インスタンス単位のハッシュ値を返す。
 		return System.identityHashCode(this);
 	}
 }

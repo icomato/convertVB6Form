@@ -100,6 +100,7 @@ public final class Vb6FormNodeEntity {
 	* 未設定ならnull
 	*/
 	public String getProperty(String key) {
+		// 指定された属性名の値を返し、未設定の場合はnullを返す。
 		return props.get(key);
 	}
 
@@ -109,6 +110,7 @@ public final class Vb6FormNodeEntity {
 	* @return 属性が存在すればtrue
 	*/
 	public boolean hasProperty(String key) {
+		// 属性名が登録されているかを返し、値が空でも存在を判定できるようにする。
 		return props.containsKey(key);
 	}
 
@@ -119,6 +121,7 @@ public final class Vb6FormNodeEntity {
 	*/
 	@Override
 	public boolean equals(Object other) {
+		// 属性の値では比較せず、同じインスタンスである場合だけ真を返す。
 		return this == other;
 	}
 
@@ -128,6 +131,7 @@ public final class Vb6FormNodeEntity {
 	*/
 	@Override
 	public int hashCode() {
+		// 属性の変更や循環参照に影響されない、インスタンス単位のハッシュ値を返す。
 		return System.identityHashCode(this);
 	}
 }
