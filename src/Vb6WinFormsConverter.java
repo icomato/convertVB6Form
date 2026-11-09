@@ -12,6 +12,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -160,12 +161,9 @@ public final class Vb6WinFormsConverter {
 			}
 			Path output = Path.of("sample", "output").toAbsolutePath().normalize();
 
-			// ファイル名順に変換し、複数の場合はフォームごとに出力先を分ける。
-			for (Path source : sources) {
-				// 1件なら従来の出力先を使い、複数なら元ファイル名をサブフォルダ名にする。
-				Path destination = sources.size() == 1 ? output : output.resolve(source.getFileName());
-				convert(source.toAbsolutePath().normalize(), destination, DEFAULT_DPI);
-			}
+			// 複数フォームは共通プロジェクトへまとめ、既存の単一フォーム出力と分離する。
+			Path destination = sources.size() == 1 ? output : output.resolve("combined");
+			convert(sources, destination, DEFAULT_DPI);
 			// 一括変換が終わったため、明示引数の処理には進まない。
 			return;
 		}
@@ -187,33 +185,67 @@ public final class Vb6WinFormsConverter {
 		if (!(dpi >= MIN_DPI && dpi <= MAX_DPI) || !Double.isFinite(dpi)) {
 			throw new IllegalArgumentException("DPIは48～768を指定してください");
 		}
-		convert(source, out, dpi);
+		convert(List.of(source), out, dpi);
 	}
 
 	/**
-	* 1件のVB6フォームを変換し、指定したフォルダへ生成物を保存する。
-	* @param source 入力.frmのパス
+	* フォームを解析し、一組のVB.NETプロジェクトとソリューションへまとめる。
+	* @param sources 入力.frmのパス一覧
 	* @param out 出力フォルダ
 	* @param dpi 座標換算に使用するDPI
 	* @throws IOException 入力の読み込み、解析、または出力に失敗した場合
 	*/
-	private static void convert(Path source, Path out, double dpi) throws IOException {
+	private static void convert(List<Path> sources, Path out, double dpi) throws IOException {
+		List<Vb6ConversionStateEntity> forms = new ArrayList<>();
+		Set<String> classNames = new HashSet<>();
 
-		// 通常ファイルとして読み込めない入力を拒否し、後続の解析失敗を防ぐ。
-		if (!Files.isRegularFile(source)) {
-			throw new IOException("入力ファイルがありません: " + source);
+		// 全フォームを先に解析し、出力ファイル名とVB.NETのクラス名の衝突を解消する。
+		for (Path source : sources) {
+
+			// 通常ファイルを読み込めない場合は、生成物を書き出す前に中止する。
+			if (!Files.isRegularFile(source)) {
+				throw new IOException("入力ファイルがありません: " + source);
+			}
+			Vb6ConversionStateEntity form = parseForm(source);
+			form.setDpi(dpi);
+			resolveLayout(form);
+			String baseName = form.getClassName();
+			String className = baseName;
+			int suffix = 2; // 重複時は2から始まる連番を付ける。
+
+			// VB.NETと同様に大文字小文字を区別せず、未使用の名前が見つかるまで連番を進める。
+			while (!classNames.add(className.toLowerCase(Locale.ROOT))) {
+				className = baseName + "_" + suffix++;
+			}
+			form.setClassName(className);
+			forms.add(form);
 		}
-		// ステップ1: .frm解析 → ステップ2: コントロールの種類と配置を確定する。
-		Vb6ConversionStateEntity st = parseForm(source);
-		st.setDpi(dpi);
-		resolveLayout(st);
-		// 入力ファイルは変更せず、出力先ディレクトリへ生成する。
+
+		// 単一フォームは従来の名前を使い、複数フォームは共通のプロジェクト名を使う。
+		String projectName = forms.size() == 1 ? forms.getFirst().getClassName() : "VB6Migrated";
 		Files.createDirectories(out);
+		Path project = out.resolve(projectName + "_Migrated.vbproj");
+		Path solution = out.resolve(projectName + "_Migrated.slnx");
+		writeProject(forms, project, solution);
+
+		// 各フォームの画面ファイルとレポートを、共通プロジェクトと同じフォルダに保存する。
+		for (int i = 0; i < forms.size(); i++) {
+			writeForm(sources.get(i), forms.get(i), project, solution);
+		}
+	}
+
+	/**
+	* 1件の画面とレポートを生成し、共通プロジェクトの場所をログへ記録する。
+	* @param source 元の.frmファイル
+	* @param st 解析済みフォーム
+	* @param project 共通のVB.NETプロジェクト
+	* @param solution 共通のソリューション
+	* @throws IOException 出力に失敗した場合
+	*/
+	private static void writeForm(Path source, Vb6ConversionStateEntity st, Path project, Path solution) throws IOException {
+		Path out = project.getParent();
 		Path designer = out.resolve(st.getClassName() + ".Designer.vb");
 		Path codeBehind = out.resolve(st.getClassName() + ".vb");
-		Path project = out.resolve(st.getClassName() + "_Migrated.vbproj");
-		Path solution = out.resolve(st.getClassName() + "_Migrated.slnx");
-		Path program = out.resolve("Program.vb");
 		Path audit = out.resolve(st.getClassName() + "_coordinate_audit.csv");
 		Path report = out.resolve(st.getClassName() + "_migration_report.txt");
 		Files.writeString(designer, toDesignerSource(st), StandardCharsets.UTF_8);
@@ -232,51 +264,6 @@ public final class Vb6WinFormsConverter {
 			"End Class\r\n", StandardCharsets.UTF_8);
 		} else {
 			st.addWarning("既存のコードビハインドは保護しました: " + codeBehind.getFileName());
-		}
-		// Program.vbと.vbprojも既存ファイルを保護する。
-
-		// 既存の起動処理を保護し、Program.vbがない場合だけ標準の起動処理を生成する。
-		if (!Files.exists(program)) {
-			Files.writeString(program,
-			"Imports System.Windows.Forms\r\n" +
-			"Friend Module Program\r\n" +
-			"    <System.STAThread()>\r\n" +
-			"    Public Sub Main()\r\n" +
-			"        Application.EnableVisualStyles()\r\n" +
-			"        Application.SetCompatibleTextRenderingDefault(False)\r\n" +
-			"        Application.Run(New " + st.getClassName() + "())\r\n" +
-			"    End Sub\r\n" +
-			"End Module\r\n", StandardCharsets.UTF_8);
-		}
-
-		// 移行後のプロジェクト設定を上書きしないよう、新規の場合だけ生成する。
-		if (!Files.exists(project)) {
-			Files.writeString(project,
-			"<Project Sdk=\"Microsoft.NET.Sdk\">\r\n" +
-			"  <PropertyGroup>\r\n" +
-			"    <OutputType>WinExe</OutputType>\r\n" +
-			"    <TargetFramework>net8.0-windows</TargetFramework>\r\n" +
-			"    <UseWindowsForms>true</UseWindowsForms>\r\n" +
-			"    <EnableWindowsTargeting>true</EnableWindowsTargeting>\r\n" +
-			"    <DefaultItemExcludes>$(DefaultItemExcludes);*.frm/**</DefaultItemExcludes>\r\n" +
-			"    <MyType>Empty</MyType>\r\n" +
-			"    <RootNamespace>VB6Migrated</RootNamespace>\r\n" +
-			"    <StartupObject>VB6Migrated.Program</StartupObject>\r\n" +
-			"  </PropertyGroup>\r\n" +
-			"  <ItemGroup>\r\n" +
-			"    <Compile Update=\"" + st.getClassName() + ".vb\">\r\n" +
-			"      <SubType>Form</SubType>\r\n" +
-			"    </Compile>\r\n" +
-			"    <Compile Update=\"" + st.getClassName() + ".Designer.vb\">\r\n" +
-			"      <DependentUpon>" + st.getClassName() + ".vb</DependentUpon>\r\n" +
-			"    </Compile>\r\n" +
-			"  </ItemGroup>\r\n" +
-			"</Project>\r\n", StandardCharsets.UTF_8);
-		}
-
-		// 既存のソリューションに追加されたプロジェクトや設定を保護し、新規の場合だけ生成する。
-		if (!Files.exists(solution)) {
-			Files.writeString(solution, toSolutionSource(project), StandardCharsets.UTF_8);
 		}
 		// 移行結果の検証用データと警告レポートは毎回更新する。
 		Files.writeString(audit, toCoordinateAuditCsv(st), StandardCharsets.UTF_8);
@@ -304,6 +291,68 @@ public final class Vb6WinFormsConverter {
 		} finally {
 			logger.removeHandler(fileHandler);
 			fileHandler.close();
+		}
+	}
+
+	/**
+	* 全フォームに共通する起動処理、プロジェクト、ソリューションを作成する。
+	* @param forms 変換するフォームの一覧。先頭が起動画面
+	* @param project 共通のVB.NETプロジェクト
+	* @param solution 共通のソリューション
+	* @throws IOException 出力に失敗した場合
+	*/
+	private static void writeProject(List<Vb6ConversionStateEntity> forms, Path project, Path solution) throws IOException {
+		String startupForm = forms.getFirst().getClassName();
+		Path program = project.resolveSibling("Program.vb");
+
+		// Program.vbと.vbprojも既存ファイルを保護する。
+
+		// 既存の起動処理を保護し、Program.vbがない場合だけ標準の起動処理を生成する。
+		if (!Files.exists(program)) {
+			Files.writeString(program,
+			"Imports System.Windows.Forms\r\n" +
+			"Friend Module Program\r\n" +
+			"    <System.STAThread()>\r\n" +
+			"    Public Sub Main()\r\n" +
+			"        Application.EnableVisualStyles()\r\n" +
+			"        Application.SetCompatibleTextRenderingDefault(False)\r\n" +
+			"        Application.Run(New " + startupForm + "())\r\n" +
+			"    End Sub\r\n" +
+			"End Module\r\n", StandardCharsets.UTF_8);
+		}
+
+		// 移行後のプロジェクト設定を上書きしないよう、新規の場合だけ生成する。
+		if (!Files.exists(project)) {
+			// 共通設定と各フォームのデザイナー関連付けを記述するXMLを蓄積する。
+			StringBuilder xml = new StringBuilder(
+			"<Project Sdk=\"Microsoft.NET.Sdk\">\r\n" +
+			"  <PropertyGroup>\r\n" +
+			"    <OutputType>WinExe</OutputType>\r\n" +
+			"    <TargetFramework>net8.0-windows</TargetFramework>\r\n" +
+			"    <UseWindowsForms>true</UseWindowsForms>\r\n" +
+			"    <EnableWindowsTargeting>true</EnableWindowsTargeting>\r\n" +
+			"    <DefaultItemExcludes>$(DefaultItemExcludes);*.frm/**;combined/**</DefaultItemExcludes>\r\n" +
+			"    <MyType>Empty</MyType>\r\n" +
+			"    <RootNamespace>VB6Migrated</RootNamespace>\r\n" +
+			"    <StartupObject>VB6Migrated.Program</StartupObject>\r\n" +
+			"  </PropertyGroup>\r\n" +
+			"  <ItemGroup>\r\n");
+
+			// フォームごとにコードビハインドとデザイナーの関連を登録する。
+			for (Vb6ConversionStateEntity form : forms) {
+				String file = form.getClassName() + ".vb";
+				xml.append("    <Compile Update=\"").append(file).append("\">\r\n")
+				.append("      <SubType>Form</SubType>\r\n    </Compile>\r\n")
+				.append("    <Compile Update=\"").append(form.getClassName()).append(".Designer.vb\">\r\n")
+				.append("      <DependentUpon>").append(file).append("</DependentUpon>\r\n    </Compile>\r\n");
+			}
+			xml.append("  </ItemGroup>\r\n</Project>\r\n");
+			Files.writeString(project, xml.toString(), StandardCharsets.UTF_8);
+		}
+
+		// 既存のソリューションに追加されたプロジェクトや設定を保護し、新規の場合だけ生成する。
+		if (!Files.exists(solution)) {
+			Files.writeString(solution, toSolutionSource(project), StandardCharsets.UTF_8);
 		}
 	}
 

@@ -228,7 +228,7 @@ java -cp bin Vb6WinFormsConverter
 
 `sample/input/`がない場合、対象の`.frm`がない場合は、理由と**HowTo**を標準エラーへ表示し、終了コード2で終了します。
 引数なしで使うには、手元のVB6フォームを`sample/input/`直下に配置してください。公開リポジトリの`sample/output/`には生成済みVB.NETのサンプルがあり、`sample/input/`に元の`.frm`は含みません。
-複数のフォームがある場合は、生成物の混在を防ぐため、`sample/output/元ファイル名.frm/`にフォームごとに出力します。1件の場合は`sample/output/`直下に出力します。
+複数のフォームがある場合は、`sample/output/combined/`に全画面をまとめ、`VB6Migrated_Migrated.vbproj`と`VB6Migrated_Migrated.slnx`を一組作成します。新規の起動コードではファイル名順の先頭を起動画面とし、同名のフォームには連番を付けます。1件の場合は`sample/output/`直下に出力します。
 入力ファイル・出力先・DPIを指定する場合は、従来どおり入力・出力・任意のDPIを引数で指定します。
 
 Java 21 以上の実行環境で、src配下の全Javaファイルをコンパイルして実行します（ビルド成果物はリポジトリには含めません）。

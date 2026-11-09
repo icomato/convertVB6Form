@@ -101,10 +101,15 @@ test ! -e "$work_dir/default-run/output"
 cp "$work_dir/Basic.frm" "$work_dir/default-run/sample/input/Other.frm"
 run_default
 test ! -s "$work_dir/default-stderr.txt"
-for form in Basic.FRM Other.frm; do
-    test -s "$work_dir/default-run/sample/output/$form/Basic_Migrated.slnx"
-    grep -Fq "入力: $form" "$work_dir/default-run/sample/output/$form/Basic_migration_report.txt"
-done
+combined="$work_dir/default-run/sample/output/combined"
+test -s "$combined/VB6Migrated_Migrated.slnx"
+test -s "$combined/VB6Migrated_Migrated.vbproj"
+test "$(find "$combined" -maxdepth 1 -name '*.vbproj' | wc -l)" -eq 1
+test "$(find "$combined" -maxdepth 1 -name '*.slnx' | wc -l)" -eq 1
+grep -Fq '入力: Basic.FRM' "$combined/Basic_migration_report.txt"
+grep -Fq '入力: Other.frm' "$combined/Basic_2_migration_report.txt"
+grep -Fq '<DependentUpon>Basic_2.vb</DependentUpon>' "$combined/VB6Migrated_Migrated.vbproj"
+grep -Fq 'Application.Run(New Basic())' "$combined/Program.vb"
 expect_howto only-one-argument
 
 printf 'Smoke test passed.\n'

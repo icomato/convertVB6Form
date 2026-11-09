@@ -4,7 +4,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    <DefaultItemExcludes>$(DefaultItemExcludes);*.frm/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);*.frm/**;combined/**</DefaultItemExcludes>
     <MyType>Empty</MyType>
     <RootNamespace>VB6Migrated</RootNamespace>
     <StartupObject>VB6Migrated.Program</StartupObject>
