@@ -258,6 +258,7 @@ public final class Vb6WinFormsConverter {
 			"    <TargetFramework>net8.0-windows</TargetFramework>\r\n" +
 			"    <UseWindowsForms>true</UseWindowsForms>\r\n" +
 			"    <EnableWindowsTargeting>true</EnableWindowsTargeting>\r\n" +
+			"    <DefaultItemExcludes>$(DefaultItemExcludes);*.frm/**</DefaultItemExcludes>\r\n" +
 			"    <MyType>Empty</MyType>\r\n" +
 			"    <RootNamespace>VB6Migrated</RootNamespace>\r\n" +
 			"    <StartupObject>VB6Migrated.Program</StartupObject>\r\n" +
