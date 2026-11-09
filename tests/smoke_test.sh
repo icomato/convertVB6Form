@@ -99,7 +99,12 @@ test ! -s "$work_dir/default-stderr.txt"
 test -s "$work_dir/default-run/sample/output/Basic_Migrated.slnx"
 test ! -e "$work_dir/default-run/output"
 cp "$work_dir/Basic.frm" "$work_dir/default-run/sample/input/Other.frm"
-expect_howto
+run_default
+test ! -s "$work_dir/default-stderr.txt"
+for form in Basic.FRM Other.frm; do
+    test -s "$work_dir/default-run/sample/output/$form/Basic_Migrated.slnx"
+    grep -Fq "入力: $form" "$work_dir/default-run/sample/output/$form/Basic_migration_report.txt"
+done
 expect_howto only-one-argument
 
 printf 'Smoke test passed.\n'

@@ -138,7 +138,7 @@ public final class Vb6WinFormsConverter {
 	* VB6フォームを読み込んでVB.NET WinFormsのデザイナーと検証用資料を生成する。
 	* 使用方法: java -cp bin Vb6WinFormsConverter input.frm output_dir [dpi]。
 	* 既存のコードビハインドは上書きしない。
-	* 引数を省略すると、実行フォルダのsample/input内の単一.frmをsample/outputへ変換する。
+	* 引数を省略すると、実行フォルダのsample/input内のすべての.frmをsample/outputへ変換する。
 	* @param args 入力.frm、出力ディレクトリ、省略可能なDPI（既定値96）。全省略も可能
 	* @throws IllegalArgumentException DPIが数値でないか、
 	* 48～768の有限値でない場合
@@ -147,21 +147,38 @@ public final class Vb6WinFormsConverter {
 	*/
 	public static void main(String[] args) throws IOException {
 
-		try {
-			args = resolveArguments(args);
-		} catch (IOException | IllegalArgumentException ex) {
-			printHowTo(ex.getMessage());
-			System.exit(2); // 2は入力指定の不備を呼び出し元へ通知する終了コード。
-			// 入力を確定できなかった場合は、変換や出力ファイル作成を開始せず終了する。
+		// 引数がない場合は、sample/inputにあるフォームをまとめて変換する。
+		if (args.length == 0) {
+			List<Path> sources;
+			try {
+				sources = findSampleForms();
+			} catch (IOException ex) {
+				printHowTo(ex.getMessage());
+				System.exit(2); // 2は入力指定の不備を通知する終了コード。
+				// 入力を確定できなかったため、変換を開始せず終了する。
+				return;
+			}
+			Path output = Path.of("sample", "output").toAbsolutePath().normalize();
+
+			// ファイル名順に変換し、複数の場合はフォームごとに出力先を分ける。
+			for (Path source : sources) {
+				// 1件なら従来の出力先を使い、複数なら元ファイル名をサブフォルダ名にする。
+				Path destination = sources.size() == 1 ? output : output.resolve(source.getFileName());
+				convert(source.toAbsolutePath().normalize(), destination, DEFAULT_DPI);
+			}
+			// 一括変換が終わったため、明示引数の処理には進まない。
+			return;
+		}
+
+		// 明示引数は入力と出力の2個、またはDPIを含む3個を受け付ける。
+		if (args.length < 2 || args.length > 3) {
+			printHowTo("引数は省略するか、入力.frmと出力先（任意でDPI）を指定してください。");
+			System.exit(2); // 2は入力指定の不備を通知する終了コード。
+			// 引数が不足または過剰なため終了する。
 			return;
 		}
 		Path source = Path.of(args[0]).toAbsolutePath().normalize();
 		Path out = Path.of(args[1]).toAbsolutePath().normalize();
-
-		// 通常ファイルとして読み込めない入力を拒否し、後続の解析失敗を防ぐ。
-		if (!Files.isRegularFile(source)) {
-			throw new IOException("入力ファイルがありません: " + source);
-		}
 		// 引数は入力・出力の2個が必須で、3個目だけが省略可能なDPI。
 		// DPIの指定があればその値を読み取り、省略時は既定DPIを使う。
 		double dpi = args.length == 3 ? Double.parseDouble(args[2]) : DEFAULT_DPI;
@@ -169,6 +186,22 @@ public final class Vb6WinFormsConverter {
 		// 座標換算に使えないDPIを拒否し、極端な拡大縮小や非有限値を防ぐ。
 		if (!(dpi >= MIN_DPI && dpi <= MAX_DPI) || !Double.isFinite(dpi)) {
 			throw new IllegalArgumentException("DPIは48～768を指定してください");
+		}
+		convert(source, out, dpi);
+	}
+
+	/**
+	* 1件のVB6フォームを変換し、指定したフォルダへ生成物を保存する。
+	* @param source 入力.frmのパス
+	* @param out 出力フォルダ
+	* @param dpi 座標換算に使用するDPI
+	* @throws IOException 入力の読み込み、解析、または出力に失敗した場合
+	*/
+	private static void convert(Path source, Path out, double dpi) throws IOException {
+
+		// 通常ファイルとして読み込めない入力を拒否し、後続の解析失敗を防ぐ。
+		if (!Files.isRegularFile(source)) {
+			throw new IOException("入力ファイルがありません: " + source);
 		}
 		// ステップ1: .frm解析 → ステップ2: コントロールの種類と配置を確定する。
 		Vb6ConversionStateEntity st = parseForm(source);
@@ -274,51 +307,34 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* 明示引数を検査し、全省略の場合は実行フォルダ内のsample/inputから入力を選択する。
-	* サブフォルダは探索せず、通常ファイルで拡張子が.frmのものを対象とする。
-	* @param args 利用者が指定したコマンドライン引数
-	* @return 入力.frm、出力先、省略可能なDPIを格納した引数配列
-	* @throws IOException sample/inputが存在しない場合、または読み取れない場合
-	* @throws IllegalArgumentException 引数の個数やsample/input内の候補件数が不適切な場合
+	* sample/input直下の.frm通常ファイルをファイル名順に取得する。
+	* 拡張子の大文字小文字は区別せず、他のファイルとサブフォルダは読み飛ばす。
+	* @return 変換対象フォームの一覧
+	* @throws IOException 入力フォルダを読み取れないか、対象の.frmがない場合
 	*/
-	private static String[] resolveArguments(String[] args) throws IOException {
-
-		// 引数が明示されていれば従来の入力・出力・任意DPI指定を使う。
-		if (args.length != 0) {
-
-			// 入力と出力の2個、またはDPIを含む3個以外は使い方の誤りとして通知する。
-			if (args.length < 2 || args.length > 3) {
-				throw new IllegalArgumentException("引数は省略するか、入力.frmと出力先（任意でDPI）を指定してください。");
-			}
-			// 個数が正しい明示引数は、内容を変更せず呼び出し元へ返す。
-			return args;
-		}
+	private static List<Path> findSampleForms() throws IOException {
 		Path sample = Path.of("sample", "input");
 
-		// 相対パスsample/inputがディレクトリでない場合は、既定の入力を選択できない。
+		// 相対パスsample/inputがディレクトリでない場合は、入力を探索できない。
 		if (!Files.isDirectory(sample)) {
 			throw new IOException("実行フォルダにsample/inputディレクトリがありません: " + sample.toAbsolutePath().normalize());
 		}
 		List<Path> candidates;
 		try (Stream<Path> entries = Files.list(sample)) {
-			// .frmの大小文字は区別しない。2件見つかれば複数候補と判定できるため探索を打ち切る。
+			// .frmと.FRMの両方を対象にし、他の拡張子やディレクトリは除外する。
 			candidates = entries.filter(Files::isRegularFile)
 			.filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".frm"))
-			.limit(2).toList();
+			.sorted().toList();
 		}
 
 		// 入力候補がない場合は、元のVB6フォームを配置する方法を案内する。
 		if (candidates.isEmpty()) {
-			throw new IllegalArgumentException("sample/inputディレクトリに対象の.frmファイルがありません。");
+			throw new IOException("sample/inputディレクトリに対象の.frmファイルがありません。");
 		}
-
-		// 複数ある入力から勝手に選ばず、利用者に対象ファイルの明示指定を求める。
-		if (candidates.size() > 1) {
-			throw new IllegalArgumentException("sample/inputディレクトリに.frmファイルが複数あります。入力ファイルを引数で指定してください。");
-		}
-		// 唯一の.frmを入力にし、実行フォルダからの相対パスsample/outputを出力先として返す。
-		return new String[] {candidates.get(0).toString(), Path.of("sample", "output").toString()};
+		// 条件を満たすすべてのフォームを、変換順に返す。
+		return candidates;
 	}
+
 
 	/**
 	* 入力指定を解決できない理由と、引数省略・明示指定の使い方を標準エラーへ出力する。
@@ -326,7 +342,7 @@ public final class Vb6WinFormsConverter {
 	*/
 	private static void printHowTo(String reason) {
 		System.err.println("HowTo ERROR: " + reason);
-		System.err.println("引数なし: 実行フォルダのsample/input直下に.frmを1件配置してください（出力先: sample/output）。");
+		System.err.println("引数なし: 実行フォルダのsample/input直下に.frmを配置してください（出力先: sample/output）。");
 		System.err.println("明示指定: java -cp bin Vb6WinFormsConverter <input.frm> <output-dir> [dpi: default 96]");
 		System.err.println("例: java -cp bin Vb6WinFormsConverter sample/input/ReportWindow.frm sample/output");
 	}
