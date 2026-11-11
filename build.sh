@@ -12,5 +12,5 @@ fi
 
 mkdir -p bin
 javac -encoding UTF-8 --release 21 -cp lib/lombok-1.18.48.jar \
-  -processorpath lib/lombok-1.18.48.jar -d bin src/*.java src/entity/*.java
+  -processorpath lib/lombok-1.18.48.jar -d bin src/*.java src/constants/*.java src/entity/*.java
 printf 'Build completed: bin/Vb6WinFormsConverter.class\n'

@@ -57,7 +57,8 @@ grep -Fq 'Me.Label1.AutoSize = True' \
     "$work_dir/output/Basic.Designer.vb"
 grep -Fq 'Me.Label1.Text = "Hello"' \
     "$work_dir/output/Basic.Designer.vb"
-test -s "$work_dir/output/Basic_coordinate_audit.csv"
+test -s "$work_dir/output/reports/Basic_coordinate_audit.csv"
+test ! -e "$work_dir/output/Basic_coordinate_audit.csv"
 test -s "$work_dir/output/Basic_migration_report.txt"
 
 # 実行フォルダ基準の相対パスでsample/inputを探し、HowToと終了コードを確認する。
@@ -97,6 +98,7 @@ cp "$work_dir/Basic.frm" "$work_dir/default-run/sample/input/Basic.FRM"
 run_default
 test ! -s "$work_dir/default-stderr.txt"
 test -s "$work_dir/default-run/sample/output/Basic_Migrated.slnx"
+test -s "$work_dir/default-run/sample/output/reports/Basic_coordinate_audit.csv"
 test ! -e "$work_dir/default-run/output"
 cp "$work_dir/Basic.frm" "$work_dir/default-run/sample/input/Other.frm"
 run_default
@@ -104,6 +106,9 @@ test ! -s "$work_dir/default-stderr.txt"
 combined="$work_dir/default-run/sample/output/combined"
 test -s "$combined/VB6Migrated_Migrated.slnx"
 test -s "$combined/VB6Migrated_Migrated.vbproj"
+test -s "$combined/reports/Basic_coordinate_audit.csv"
+test -s "$combined/reports/Basic_2_coordinate_audit.csv"
+test ! -e "$combined/Basic_coordinate_audit.csv"
 test "$(find "$combined" -maxdepth 1 -name '*.vbproj' | wc -l)" -eq 1
 test "$(find "$combined" -maxdepth 1 -name '*.slnx' | wc -l)" -eq 1
 grep -Fq '入力: Basic.FRM' "$combined/Basic_migration_report.txt"

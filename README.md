@@ -9,7 +9,7 @@
 - `Program.vb`：アプリケーションのエントリポイント（既存ファイルは上書きしません）。
 - `ReportWindow_Migrated.vbproj`：.NET 8 Windows Forms のVisual Studio用プロジェクト（既存ファイルは上書きしません）。
 - `ReportWindow_Migrated.slnx`：上記のVB.NETプロジェクトを相対パスで参照するXMLソリューション（既存ファイルは上書きしません）。
-- `ReportWindow_coordinate_audit.csv`：元のTwips座標、変換後ピクセル座標、タブ所属の確認用CSV。
+- `reports/ReportWindow_coordinate_audit.csv`：元のTwips座標、変換後ピクセル座標、タブ所属の確認用CSV。
 - `ReportWindow_migration_report.txt`：未移行項目、タブ所属の推定、コントロール配列の変更など。
 - `convertVB6Form.log`：変換成功時の出力先・件数など、標準出力と同じ完了メッセージを日時・INFOレベル付きで記録するUTF-8ログ。指定した出力フォルダに作成し、再実行時は追記します。
 
@@ -199,11 +199,17 @@ bash tests/smoke_test.sh
 
 ## Javaソースの構成とJavadoc
 
-ソースコードは **1ファイル1クラス** で構成し、内部クラスは使用していません。データ保持クラスはクラス名に`Entity`を付け、`src/entity/`（`package entity`）に配置しています。メンバ変数の定義とメソッド・コンストラクタのJavadocの間には空行を入れています。実行時はJava 21の標準APIだけで動作します。EclipseではLombokの導入が必要です。
+ソースコードは **1ファイル1クラス、各クラス1,000行以内** で構成し、内部クラスは使用していません。データ保持クラスはクラス名に`Entity`を付け、`src/entity/`（`package entity`）に配置しています。メンバ変数の定義とメソッド・コンストラクタのJavadocの間には空行を入れています。実行時はJava 21の標準APIだけで動作します。EclipseではLombokの導入が必要です。
 
 | ファイル | 担当処理 |
 | --- | --- |
-| `Vb6WinFormsConverter.java` | .frm解析、Twips座標の変換、SSTabの補正、VB.NETファイル・監査資料の出力 |
+| `Vb6WinFormsConverter.java` | コマンドライン引数の処理、変換の実行、ファイル保存とログ出力 |
+| `Vb6FormParser.java` | .frmの読み込みとコントロール階層・属性の解析 |
+| `Vb6LayoutResolver.java` | WinForms型、Twips座標、SSTabの所属と配置の解決 |
+| `Vb6Format.java` | 属性値の解釈と出力用の整形 |
+| `VbNetSourceGenerator.java` | デザイナーとVB.NETフィールド宣言の生成 |
+| `Vb6ReportGenerator.java` | 座標監査CSVと移行レポートの生成 |
+| `constants/Vb6ConversionConstants.java` | 文字コード、解析パターン、換算値、監査CSVのフォルダ名 |
 | `entity/Vb6FormNodeEntity.java` | コントロール階層、属性、Twips・Pixel座標の保持 |
 | `entity/Vb6TabInfoEntity.java` | SSTabのタブ枚数、子コントロールの所属、TabPageの管理 |
 | `entity/Vb6ConversionStateEntity.java` | 入力フォームの変換状態、警告、出力件数の管理 |
@@ -213,7 +219,7 @@ bash tests/smoke_test.sh
 ```bash
 java -jar lib/lombok-1.18.48.jar delombok src -d build/delombok --encoding UTF-8
 javadoc -private -classpath lib/lombok-1.18.48.jar -Xdoclint:all,-missing -encoding UTF-8 -charset UTF-8 -docencoding UTF-8 \
-  -d docs/api build/delombok/*.java build/delombok/entity/*.java
+  -d docs/api build/delombok/*.java build/delombok/constants/*.java build/delombok/entity/*.java
 ```
 
 生成物の`docs/api/`はGitの管理対象から除外しています。
@@ -231,6 +237,9 @@ java -cp bin Vb6WinFormsConverter
 `sample/input/`がない場合、対象の`.frm`がない場合は、理由と**HowTo**を標準エラーへ表示し、終了コード2で終了します。
 引数なしで使うには、手元のVB6フォームを`sample/input/`直下に配置してください。公開リポジトリの`sample/output/`には生成済みVB.NETのサンプルがあり、`sample/input/`に元の`.frm`は含みません。
 複数のフォームがある場合は、`sample/output/combined/`に全画面をまとめ、`VB6Migrated_Migrated.vbproj`と`VB6Migrated_Migrated.slnx`を一組作成します。新規の起動コードではファイル名順の先頭を起動画面とし、同名のフォームには連番を付けます。1件の場合は`sample/output/`直下に出力します。
+
+座標監査CSVは、指定した出力先または一括変換先の `reports/` に保存します。たとえば一括変換では `sample/output/combined/reports/` にまとまります。既存の出力先直下にある旧形式のCSVは必要に応じて手動で移動できます。
+
 入力ファイル・出力先・DPIを指定する場合は、従来どおり入力・出力・任意のDPIを引数で指定します。
 
 Java 21 以上の実行環境で、src配下の全Javaファイルをコンパイルして実行します（ビルド成果物はリポジトリには含めません）。
@@ -248,7 +257,7 @@ java -Dfile.encoding=UTF-8 -cp bin Vb6WinFormsConverter ReportWindowCoorsDummy.f
 ```bash
 mkdir -p bin
 javac -encoding UTF-8 --release 21 -cp lib/lombok-1.18.48.jar \
-  -processorpath lib/lombok-1.18.48.jar -d bin src/*.java src/entity/*.java
+  -processorpath lib/lombok-1.18.48.jar -d bin src/*.java src/constants/*.java src/entity/*.java
 ```
 
 **重要:** このJavaソースには日本語のコメントや文字列が含まれます。環境によって `javac` の既定文字コードが `US-ASCII` になり、`unmappable character for encoding US-ASCII` が発生します。ソースを削除・変更せず、上記のように `-encoding UTF-8` を指定してください。
@@ -318,7 +327,7 @@ Windows Forms の `WebBrowser` は旧式のブラウザコンポーネントな�
 
 ## リポジトリのファイル
 
-- `src/Vb6WinFormsConverter.java`：変換処理本体・VB.NETコード生成
+- `src/Vb6WinFormsConverter.java`：コマンドライン実行と変換処理の取りまとめ
 - `src/entity/Vb6FormNodeEntity.java`：VB6コントロールと座標・親子関係の保持
 - `src/entity/Vb6TabInfoEntity.java`：SSTabのタブ所属とTabPageの管理
 - `src/entity/Vb6ConversionStateEntity.java`：フォーム単位の変換情報・警告と件数の管理

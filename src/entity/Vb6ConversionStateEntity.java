@@ -1,5 +1,7 @@
 package entity;
 
+import static constants.Vb6ConversionConstants.DEFAULT_DPI;
+
 import lombok.Data;
 import lombok.ToString;
 
@@ -47,7 +49,7 @@ public final class Vb6ConversionStateEntity {
 	* 座標変換に使用するDPI。
 	* 初期値は96。
 	*/
-	private double dpi = 96.0;
+	private double dpi = DEFAULT_DPI;
 
 	/** タブ所属を推定した件数。 */
 	private int unknownTabCount;
