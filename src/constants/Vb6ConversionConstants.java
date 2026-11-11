@@ -4,12 +4,12 @@ import java.nio.charset.Charset;
 import java.util.regex.Pattern;
 
 /**
-* VB6フォーム変換で使用する文字コード、解析パターン、換算値と出力先の定数。
-*
-* @author convertVB6Form contributors
-* @version 1.0
-* @since 1.0
-*/
+ * VB6フォーム変換で使用する文字コード、解析パターン、換算値と出力先の定数。
+ *
+ * @author convertVB6Form contributors
+ * @version 1.0
+ * @since 1.0
+ */
 public final class Vb6ConversionConstants {
 	// VB6の日本語.frmをWindows-31Jで読み取る。生成ファイルはUTF-8で出力する。
 	/** VB6フォームの読み込みに使用するWindows-31J文字コード。 */
@@ -17,39 +17,39 @@ public final class Vb6ConversionConstants {
 
 	// .frmのBegin/Endでコントロール階層を、BeginProperty/EndPropertyでFont等の属性を認識する。
 	/**
-	* コントロールの開始宣言「Begin 型名 要素名」の行全体に一致する。
-	* 前後の空白を許可し、型名には英数字・アンダースコア・ピリオドを許可する。
-	* 要素名は空白を含まない1語で、キーワードの大文字小文字は区別する。
-	* 例: 「Begin VB.CommandButton Command1」→ グループ1はVB.CommandButton、
-	* グループ2はCommand1。「Begin VB.Label」は要素名がないため一致しない。
-	*/
+	 * コントロールの開始宣言「Begin 型名 要素名」の行全体に一致する。
+	 * 前後の空白を許可し、型名には英数字・アンダースコア・ピリオドを許可する。
+	 * 要素名は空白を含まない1語で、キーワードの大文字小文字は区別する。
+	 * 例: 「Begin VB.CommandButton Command1」→ グループ1はVB.CommandButton、
+	 * グループ2はCommand1。「Begin VB.Label」は要素名がないため一致しない。
+	 */
 	public static final Pattern BEGIN = Pattern.compile("^\\s*Begin\\s+([\\w.]+)\\s+([^\\s]+)\\s*$");
 
 	/**
-	* 複合属性の開始宣言「BeginProperty 属性名」の行全体に一致する。
-	* 属性名は空白を含まない1語で、その後の空白と追加情報は省略できる。
-	* 例: 「BeginProperty Font」と「BeginProperty Font {GUID}」はどちらも一致し、
-	* グループ1からFontを取得する。「EndProperty」は一致しない。
-	*/
+	 * 複合属性の開始宣言「BeginProperty 属性名」の行全体に一致する。
+	 * 属性名は空白を含まない1語で、その後の空白と追加情報は省略できる。
+	 * 例: 「BeginProperty Font」と「BeginProperty Font {GUID}」はどちらも一致し、
+	 * グループ1からFontを取得する。「EndProperty」は一致しない。
+	 */
 	public static final Pattern BEGIN_PROPERTY = Pattern.compile("^\\s*BeginProperty\\s+(\\S+)(?:\\s+.*)?$");
 
 	/**
-	* 「属性名 = 値」の行全体に一致し、前後と等号の両側の空白を許可する。
-	* グループ1は等号を含まない属性名、グループ2は空文字列も許容する属性値。
-	* 例: 「Caption = "住所"」→ Captionと"住所"、
-	* 「ClientWidth = 3000」→ ClientWidthと3000を取り出す。
-	* 「Text =」も一致するが、等号がない「End」は一致しない。
-	*/
+	 * 「属性名 = 値」の行全体に一致し、前後と等号の両側の空白を許可する。
+	 * グループ1は等号を含まない属性名、グループ2は空文字列も許容する属性値。
+	 * 例: 「Caption = "住所"」→ Captionと"住所"、
+	 * 「ClientWidth = 3000」→ ClientWidthと3000を取り出す。
+	 * 「Text =」も一致するが、等号がない「End」は一致しない。
+	 */
 	public static final Pattern PROPERTY = Pattern.compile("^\\s*([^=]+?)\\s*=\\s*(.*?)\\s*$");
 
 	// SSTab固有の「Tab(n).Control(m)」形式から子要素の所属タブを抽出する。
 	/**
-	* SSTabの子コントロール所属を示す「Tab(数字).Control(数字)」に一致する。
-	* 括弧とピリオドは文字そのものを表し、数字は半角数字1桁以上。
-	* 呼び出し側のmatchesで属性名全体を照合し、大文字小文字は区別しない。
-	* 例: 「Tab(1).Control(12)」→ グループ1は1、グループ2は12。
-	* 「tab(0).control(2)」も一致し、「Tab(A).Control(0)」は一致しない。
-	*/
+	 * SSTabの子コントロール所属を示す「Tab(数字).Control(数字)」に一致する。
+	 * 括弧とピリオドは文字そのものを表し、数字は半角数字1桁以上。
+	 * 呼び出し側のmatchesで属性名全体を照合し、大文字小文字は区別しない。
+	 * 例: 「Tab(1).Control(12)」→ グループ1は1、グループ2は12。
+	 * 「tab(0).control(2)」も一致し、「Tab(A).Control(0)」は一致しない。
+	 */
 	public static final Pattern TAB_CONTROL = Pattern.compile("Tab\\((\\d+)\\)\\.Control\\((\\d+)\\)", Pattern.CASE_INSENSITIVE);
 
 	// 非選択タブのコントロールが、左方向へ75000Twips移動して保存されるケースを補正する。
@@ -57,27 +57,27 @@ public final class Vb6ConversionConstants {
 	public static final long SSTAB_HIDE_TWIPS = 75000L;
 
 	/**
-	* DPIを省略した場合の換算値。
-	* Windowsの標準倍率に相当する。
-	*/
+	 * DPIを省略した場合の換算値。
+	 * Windowsの標準倍率に相当する。
+	 */
 	public static final double DEFAULT_DPI = 96.0;
 
 	/**
-	* 変換ツールが受け付けるDPIの下限。
-	* 標準倍率の半分。
-	*/
+	 * 変換ツールが受け付けるDPIの下限。
+	 * 標準倍率の半分。
+	 */
 	public static final double MIN_DPI = 48.0;
 
 	/**
-	* 変換ツールが受け付けるDPIの上限。
-	* 標準倍率の8倍。
-	*/
+	 * 変換ツールが受け付けるDPIの上限。
+	 * 標準倍率の8倍。
+	 */
 	public static final double MAX_DPI = 768.0;
 
 	/**
-	* 1インチに含まれるTwips数。
-	* DPIからピクセルへ換算する際の基準。
-	*/
+	 * 1インチに含まれるTwips数。
+	 * DPIからピクセルへ換算する際の基準。
+	 */
 	public static final double TWIPS_PER_INCH = 1440.0;
 
 	/** VB6のScaleModeでTwipsを表す値。 */

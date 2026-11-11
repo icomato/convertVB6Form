@@ -16,23 +16,23 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
-* 解析したフォームのWinForms型、タブ所属、出力時の座標を解決する。
-*
-* @author convertVB6Form contributors
-* @version 1.0
-* @since 1.0
-*/
+ * 解析したフォームのWinForms型、タブ所属、出力時の座標を解決する。
+ *
+ * @author convertVB6Form contributors
+ * @version 1.0
+ * @since 1.0
+ */
 final class Vb6LayoutResolver {
 	/** インスタンス化を防ぐ。 */
 	private Vb6LayoutResolver() {
 	}
 
 	/**
-	* コントロール名・WinForms型・座標・親子関係を解決する。
-	* SSTabでは明示的なTab(n).Controlと兄弟要素から所属を決め、
-	* 非表示タブ用の負座標とTabHeightを補正する。
-	* @param stateEntity 更新する解析・変換状態
-	*/
+	 * コントロール名・WinForms型・座標・親子関係を解決する。
+	 * SSTabでは明示的なTab(n).Controlと兄弟要素から所属を決め、
+	 * 非表示タブ用の負座標とTabHeightを補正する。
+	 * @param stateEntity 更新する解析・変換状態
+	 */
 	static void resolveLayout(Vb6ConversionStateEntity stateEntity) {
 		// VB6のVB_Name（見つからなければフォーム名）を出力先のクラス名に採用。
 		// 複数行モードで、行頭の「Attribute VB_Name = "空でない名前"」を部分検索する。
@@ -255,11 +255,11 @@ final class Vb6LayoutResolver {
 	}
 
 	/**
-	* フィールド名を大文字小文字を区別せず一意にする。
-	* @param stateEntity 使用済み名前の管理状態
-	* @param requested フィールド名候補
-	* @return 必要に応じて連番を付けたフィールド名
-	*/
+	 * フィールド名を大文字小文字を区別せず一意にする。
+	 * @param stateEntity 使用済み名前の管理状態
+	 * @param requested フィールド名候補
+	 * @return 必要に応じて連番を付けたフィールド名
+	 */
 	private static String toUniqueFieldName(Vb6ConversionStateEntity stateEntity, String requested) {
 		// 使用済みの名前と照合し、重複があれば連番を付け直す候補名。
 		String name = requested;
@@ -277,10 +277,10 @@ final class Vb6LayoutResolver {
 	}
 
 	/**
-	* VB6名の使用できない文字と予約語を処理してVB.NET識別子へ正規化する。
-	* @param name 元の名前
-	* @return VB.NET識別子の候補
-	*/
+	 * VB6名の使用できない文字と予約語を処理してVB.NET識別子へ正規化する。
+	 * @param name 元の名前
+	 * @return VB.NET識別子の候補
+	 */
 	private static String toSafeIdentifier(String name) {
 		// Unicodeの文字（\p{L}）・数字（\p{N}）・アンダースコア以外の各文字に一致する。
 		// 一致した文字を1文字ずつ「_」に置換する。例: 「受注-Form 1」→「受注_Form_1」。
@@ -309,12 +309,12 @@ final class Vb6LayoutResolver {
 	}
 
 	/**
-	* VB6のコントロール型をWinFormsの完全修飾クラス名へ割り当てる。
-	* COM固有の処理は移行しない。
-	* @param type VB6型名
-	* @return WinForms型名。
-	* 非対応ならnull
-	*/
+	 * VB6のコントロール型をWinFormsの完全修飾クラス名へ割り当てる。
+	 * COM固有の処理は移行しない。
+	 * @param type VB6型名
+	 * @return WinForms型名。
+	 * 非対応ならnull
+	 */
 	private static String toWinFormsControlType(String type) {
 		// VB6の型に対応するWinForms型を返し、未対応の型にはnullを返す。
 		return switch (type) {

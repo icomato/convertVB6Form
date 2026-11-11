@@ -14,16 +14,16 @@ import java.util.Map;
 import java.util.Set;
 
 /**
-* 1つのVB6フォームに対する変換処理で共有する解析・変換状態。
-*
-* <p>解析したコントロール、識別子の重複管理、SSTab情報、DPI、
-* 警告と集計値を集約する。
-* 状態はフォーム単位で作成し、静的なグローバル状態を持たない。
-*
-* @author convertVB6Form contributors
-* @version 1.0 (Javaコーディング規約対応)
-* @since 1.0
-*/
+ * 1つのVB6フォームに対する変換処理で共有する解析・変換状態。
+ *
+ * <p>解析したコントロール、識別子の重複管理、SSTab情報、DPI、
+ * 警告と集計値を集約する。
+ * 状態はフォーム単位で作成し、静的なグローバル状態を持たない。
+ *
+ * @author convertVB6Form contributors
+ * @version 1.0 (Javaコーディング規約対応)
+ * @since 1.0
+ */
 @Data
 @ToString(onlyExplicitlyIncluded = true)
 public final class Vb6ConversionStateEntity {
@@ -46,9 +46,9 @@ public final class Vb6ConversionStateEntity {
 	private final Set<String> usedFields = new HashSet<>();
 
 	/**
-	* 座標変換に使用するDPI。
-	* 初期値は96。
-	*/
+	 * 座標変換に使用するDPI。
+	 * 初期値は96。
+	 */
 	private double dpi = DEFAULT_DPI;
 
 	/** タブ所属を推定した件数。 */
@@ -68,21 +68,21 @@ public final class Vb6ConversionStateEntity {
 	private String className;
 
 	/**
-	* 元フォームに含まれるVB6コード。
-	* 参考保存用で実行コードには変換しない。
-	*/
+	 * 元フォームに含まれるVB6コード。
+	 * 参考保存用で実行コードには変換しない。
+	 */
 	private String vb6Code = "";
 
 	/**
-	* 1フォーム分の解析・変換状態を初期値で作成する。
-	*/
+	 * 1フォーム分の解析・変換状態を初期値で作成する。
+	 */
 	public Vb6ConversionStateEntity() {
 	}
 
 	/**
-	* 未対応・推定・要確認の警告を移行レポート用に記録する。
-	* @param s WARN:を付ける前の警告文
-	*/
+	 * 未対応・推定・要確認の警告を移行レポート用に記録する。
+	 * @param s WARN:を付ける前の警告文
+	 */
 	public void addWarning(String s) {
 		warnings.add("WARN: " + s);
 	}
@@ -108,10 +108,10 @@ public final class Vb6ConversionStateEntity {
 	}
 
 	/**
-	* 可変の解析ノードは値で比較せず、同じインスタンスかどうかで判定する。
-	* @param other 比較するオブジェクト
-	* @return 同じインスタンスの場合だけtrue
-	*/
+	 * 可変の解析ノードは値で比較せず、同じインスタンスかどうかで判定する。
+	 * @param other 比較するオブジェクト
+	 * @return 同じインスタンスの場合だけtrue
+	 */
 	@Override
 	public boolean equals(Object other) {
 		// 属性の値では比較せず、同じインスタンスである場合だけ真を返す。
@@ -119,9 +119,9 @@ public final class Vb6ConversionStateEntity {
 	}
 
 	/**
-	* 属性変更や親子の循環参照に影響されない、従来どおりのハッシュ値を返す。
-	* @return インスタンスの識別用ハッシュ値
-	*/
+	 * 属性変更や親子の循環参照に影響されない、従来どおりのハッシュ値を返す。
+	 * @return インスタンスの識別用ハッシュ値
+	 */
 	@Override
 	public int hashCode() {
 		// 属性の変更や循環参照に影響されない、インスタンス単位のハッシュ値を返す。

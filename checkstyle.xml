@@ -13,9 +13,9 @@
         <property name="format" value="(?m)^(?![\t ]*//)[^\r\n]*\S[^\r\n]*\r?\n(?:[\t ]*//[^\r\n]*\r?\n)*[\t ]*(?:}[\t ]*else[\t ]+)?(?:if|for)[\t ]*\("/>
         <property name="message" value="if文・for文の直前には空行を入れてください。"/>
     </module>
-    <!-- 行頭のインデントはタブのみ。コメント行・継続行も対象。 -->
+    <!-- インデントにはタブを使い、Javadocの * を揃える半角スペース1つを許容する。 -->
     <module name="RegexpSingleline">
-        <property name="format" value="^\t* +"/>
+        <property name="format" value="^(?!\t* \*(?:[ \t]|/?$))\t* +"/>
         <property name="message" value="インデントにスペースを使用せず、タブのみを使用してください。"/>
     </module>
     <module name="TreeWalker">

@@ -22,41 +22,41 @@ import java.util.logging.SimpleFormatter;
 import java.util.stream.Stream;
 
 /**
-* VB6フォームの.frmからVB.NET Windows Formsの画面定義を生成するJava 21ツール。
-*
-* <p>Windows-31Jで読み込み、Twipsを指定DPIのPixelへ換算する。
-* SSTabはTabControl/TabPageへ変換し、Frameの親子関係を引き継ぐ。
-* 生成したDesigner.vbとともに監査CSVと未移行項目のレポートを出力する。
-*
-* <p>イベントハンドラー、業務ロジック、COMの動作、.frx画像の移行には対応しない。
-* 推定した配置や対応しない要素は、必ず出力結果と警告を確認すること。
-*
-* @see Vb6FormNodeEntity
-* @see Vb6TabInfoEntity
-* @see Vb6ConversionStateEntity
-*
-* @author convertVB6Form contributors
-* @version 1.0 (Javaコーディング規約対応)
-* @since 1.0
-*/
+ * VB6フォームの.frmからVB.NET Windows Formsの画面定義を生成するJava 21ツール。
+ *
+ * <p>Windows-31Jで読み込み、Twipsを指定DPIのPixelへ換算する。
+ * SSTabはTabControl/TabPageへ変換し、Frameの親子関係を引き継ぐ。
+ * 生成したDesigner.vbとともに監査CSVと未移行項目のレポートを出力する。
+ *
+ * <p>イベントハンドラー、業務ロジック、COMの動作、.frx画像の移行には対応しない。
+ * 推定した配置や対応しない要素は、必ず出力結果と警告を確認すること。
+ *
+ * @see Vb6FormNodeEntity
+ * @see Vb6TabInfoEntity
+ * @see Vb6ConversionStateEntity
+ *
+ * @author convertVB6Form contributors
+ * @version 1.0 (Javaコーディング規約対応)
+ * @since 1.0
+ */
 public final class Vb6WinFormsConverter {
 	/**
-	* インスタンス化を禁止するユーティリティクラスのコンストラクタ。
-	*/
+	 * インスタンス化を禁止するユーティリティクラスのコンストラクタ。
+	 */
 	private Vb6WinFormsConverter() {
 	}
 
 	/**
-	* VB6フォームを読み込んでVB.NET WinFormsのデザイナーと検証用資料を生成する。
-	* 使用方法: java -cp bin Vb6WinFormsConverter input.frm output_dir [dpi]。
-	* 既存のコードビハインドは上書きしない。
-	* 引数を省略すると、実行フォルダのsample/input内のすべての.frmをsample/outputへ変換する。
-	* @param args 入力.frm、出力ディレクトリ、省略可能なDPI（既定値96）。全省略も可能
-	* @throws IllegalArgumentException DPIが数値でないか、
-	* 48～768の有限値でない場合
-	* @throws IOException .frmの読み込み、解析、
-	* または出力ファイル作成に失敗した場合
-	*/
+	 * VB6フォームを読み込んでVB.NET WinFormsのデザイナーと検証用資料を生成する。
+	 * 使用方法: java -cp bin Vb6WinFormsConverter input.frm output_dir [dpi]。
+	 * 既存のコードビハインドは上書きしない。
+	 * 引数を省略すると、実行フォルダのsample/input内のすべての.frmをsample/outputへ変換する。
+	 * @param args 入力.frm、出力ディレクトリ、省略可能なDPI（既定値96）。全省略も可能
+	 * @throws IllegalArgumentException DPIが数値でないか、
+	 * 48～768の有限値でない場合
+	 * @throws IOException .frmの読み込み、解析、
+	 * または出力ファイル作成に失敗した場合
+	 */
 	public static void main(String[] args) throws IOException {
 
 		// 引数がない場合は、sample/inputにあるフォームをまとめて変換する。
@@ -113,12 +113,12 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* フォームを解析し、一組のVB.NETプロジェクトとソリューションへまとめる。
-	* @param sources 入力.frmのパス一覧
-	* @param out 出力フォルダ
-	* @param dpi 座標換算に使用するDPI
-	* @throws IOException 入力の読み込み、解析、または出力に失敗した場合
-	*/
+	 * フォームを解析し、一組のVB.NETプロジェクトとソリューションへまとめる。
+	 * @param sources 入力.frmのパス一覧
+	 * @param out 出力フォルダ
+	 * @param dpi 座標換算に使用するDPI
+	 * @throws IOException 入力の読み込み、解析、または出力に失敗した場合
+	 */
 	private static void convert(List<Path> sources, Path out, double dpi) throws IOException {
 		// 入力順に蓄積するフォームごとの変換状態。先頭が起動画面になる。
 		List<Vb6ConversionStateEntity> forms = new ArrayList<>();
@@ -174,13 +174,13 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* 1件の画面とレポートを生成し、共通プロジェクトの場所をログへ記録する。
-	* @param source 元の.frmファイル
-	* @param st 解析済みフォーム
-	* @param project 共通のVB.NETプロジェクト
-	* @param solution 共通のソリューション
-	* @throws IOException 出力に失敗した場合
-	*/
+	 * 1件の画面とレポートを生成し、共通プロジェクトの場所をログへ記録する。
+	 * @param source 元の.frmファイル
+	 * @param st 解析済みフォーム
+	 * @param project 共通のVB.NETプロジェクト
+	 * @param solution 共通のソリューション
+	 * @throws IOException 出力に失敗した場合
+	 */
 	private static void writeForm(Path source, Vb6ConversionStateEntity st, Path project, Path solution) throws IOException {
 		// 共通プロジェクトとフォームの生成物を置くフォルダ。
 		Path out = project.getParent();
@@ -247,12 +247,12 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* 全フォームに共通する起動処理、プロジェクト、ソリューションを作成する。
-	* @param forms 変換するフォームの一覧。先頭が起動画面
-	* @param project 共通のVB.NETプロジェクト
-	* @param solution 共通のソリューション
-	* @throws IOException 出力に失敗した場合
-	*/
+	 * 全フォームに共通する起動処理、プロジェクト、ソリューションを作成する。
+	 * @param forms 変換するフォームの一覧。先頭が起動画面
+	 * @param project 共通のVB.NETプロジェクト
+	 * @param solution 共通のソリューション
+	 * @throws IOException 出力に失敗した場合
+	 */
 	private static void writeProject(List<Vb6ConversionStateEntity> forms, Path project, Path solution) throws IOException {
 		// 入力順で最初のフォームを起動するためのクラス名。
 		String startupForm = forms.getFirst().getClassName();
@@ -311,11 +311,11 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* sample/input直下の.frm通常ファイルをファイル名順に取得する。
-	* 拡張子の大文字小文字は区別せず、他のファイルとサブフォルダは読み飛ばす。
-	* @return 変換対象フォームの一覧
-	* @throws IOException 入力フォルダを読み取れないか、対象の.frmがない場合
-	*/
+	 * sample/input直下の.frm通常ファイルをファイル名順に取得する。
+	 * 拡張子の大文字小文字は区別せず、他のファイルとサブフォルダは読み飛ばす。
+	 * @return 変換対象フォームの一覧
+	 * @throws IOException 入力フォルダを読み取れないか、対象の.frmがない場合
+	 */
 	private static List<Path> findSampleForms() throws IOException {
 		// 引数省略時に.frmを探索する、実行フォルダからの相対パス。
 		Path sample = Path.of("sample", "input");
@@ -346,9 +346,9 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* 入力指定を解決できない理由と、引数省略・明示指定の使い方を標準エラーへ出力する。
-	* @param reason 変換を開始できない理由
-	*/
+	 * 入力指定を解決できない理由と、引数省略・明示指定の使い方を標準エラーへ出力する。
+	 * @param reason 変換を開始できない理由
+	 */
 	private static void printHowTo(String reason) {
 		System.err.println("HowTo ERROR: " + reason);
 		System.err.println("引数なし: 実行フォルダのsample/input直下に.frmを配置してください（出力先: sample/output）。");
@@ -357,11 +357,11 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* 同じ出力フォルダ内のVB.NETプロジェクトを参照するXMLソリューションを生成する。
-	* プロジェクトを相対パスで記録し、フォルダを移動しても参照できるようにする。
-	* @param project ソリューションに登録するVB.NETプロジェクトのパス
-	* @return SLNX形式のソリューション全文
-	*/
+	 * 同じ出力フォルダ内のVB.NETプロジェクトを参照するXMLソリューションを生成する。
+	 * プロジェクトを相対パスで記録し、フォルダを移動しても参照できるようにする。
+	 * @param project ソリューションに登録するVB.NETプロジェクトのパス
+	 * @return SLNX形式のソリューション全文
+	 */
 	private static String toSolutionSource(Path project) {
 		// XML属性に埋め込むため、ファイル名の特殊文字をエスケープする。
 		String projectFile = project.getFileName().toString()
@@ -374,10 +374,10 @@ public final class Vb6WinFormsConverter {
 	}
 
 	/**
-	* 同じメッセージを標準出力とINFOレベルのファイルログへ出力する。
-	* @param logger ファイルハンドラを登録済みの実行単位のロガー
-	* @param message 両方の出力先に記録するメッセージ
-	*/
+	 * 同じメッセージを標準出力とINFOレベルのファイルログへ出力する。
+	 * @param logger ファイルハンドラを登録済みの実行単位のロガー
+	 * @param message 両方の出力先に記録するメッセージ
+	 */
 	private static void printInfo(Logger logger, String message) {
 		System.out.println(message);
 		logger.info(message);

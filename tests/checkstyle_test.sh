@@ -54,7 +54,7 @@ done
 test "$(grep -c '\.MatchXpathCheck' "$work_dir/bad.xml")" -eq 3
 
 # 命名等の違反と分離し、スペース・混在を検出しタブを許容することを確認する。
-printf 'class TabsOnly {\n\tint value;\n}\n' > "$work_dir/TabsOnly.java"
+printf '/**\n * クラスの説明。\n *\n * @author test\n * @version 1.0\n */\nclass TabsOnly {\n\t/**\n\t * フィールドの説明。\n\t */\n\tint value;\n}\n' > "$work_dir/TabsOnly.java"
 printf 'class Spaces {\n    int value;\n}\n' > "$work_dir/Spaces.java"
 printf 'class Mixed {\n\t int value;\n}\n' > "$work_dir/Mixed.java"
 lint -o "$work_dir/tabs.xml" "$work_dir/TabsOnly.java"
@@ -62,7 +62,8 @@ if grep -q '\.RegexpSinglelineCheck' "$work_dir/tabs.xml"; then
     cat "$work_dir/tabs.xml"
     exit 1
 fi
-for fixture in Spaces Mixed; do
+printf 'class BadJavadocIndent {\n\t/**\n\t  * 半角スペースが2つある説明。\n\t */\n\tint value;\n}\n' > "$work_dir/BadJavadocIndent.java"
+for fixture in Spaces Mixed BadJavadocIndent; do
     lint -o "$work_dir/$fixture.xml" "$work_dir/$fixture.java"
     grep -q '\.RegexpSinglelineCheck' "$work_dir/$fixture.xml"
 done

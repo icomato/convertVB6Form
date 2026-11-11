@@ -6,12 +6,12 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
-* Lombok導入後も、循環参照と可変Entityの同一性が安全であることを確認する。
-*
-* @author convertVB6Form contributors
-* @version 1.0
-* @since 1.0
-*/
+ * Lombok導入後も、循環参照と可変Entityの同一性が安全であることを確認する。
+ *
+ * @author convertVB6Form contributors
+ * @version 1.0
+ * @since 1.0
+ */
 public final class EntityBehaviorTest {
 
 	/** インスタンス化を防ぐ。 */
@@ -19,9 +19,9 @@ public final class EntityBehaviorTest {
 	}
 
 	/**
-	* 生成アクセサを使って親子関係を作り、参照・比較・表示の互換性を検査する。
-	* @param args 使用しない
-	*/
+	 * 生成アクセサを使って親子関係を作り、参照・比較・表示の互換性を検査する。
+	 * @param args 使用しない
+	 */
 	public static void main(String[] args) {
 		// 親子参照と属性変更を検査するためのルートフォーム。
 		Vb6FormNodeEntity parent = new Vb6FormNodeEntity("control", "VB.Form", "Root", null);

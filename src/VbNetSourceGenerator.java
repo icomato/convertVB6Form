@@ -17,65 +17,65 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
-* 解析・配置解決済みフォームからWinFormsのデザイナーと移行用のフィールド宣言を生成する。
-*
-* @author convertVB6Form contributors
-* @version 1.0
-* @since 1.0
-*/
+ * 解析・配置解決済みフォームからWinFormsのデザイナーと移行用のフィールド宣言を生成する。
+ *
+ * @author convertVB6Form contributors
+ * @version 1.0
+ * @since 1.0
+ */
 final class VbNetSourceGenerator {
 	/** インスタンス化を防ぐ。 */
 	private VbNetSourceGenerator() {
 	}
 
 	/**
-	* フィールド名をMe.で修飾する。
-	* @param n フィールド名
-	* @return Me.フィールド名
-	*/
+	 * フィールド名をMe.で修飾する。
+	 * @param n フィールド名
+	 * @return Me.フィールド名
+	 */
 	private static String toControlReference(String n) {
 		// フィールド名にMe.を付け、生成コードで使うコントロール参照を返す。
 		return "Me." + n;
 	}
 
 	/**
-	* VB.NETプロパティ代入の対象を選択する。
-	* @param n コントロールノード
-	* @return フォームならMe、子ならMe.フィールド名
-	*/
+	 * VB.NETプロパティ代入の対象を選択する。
+	 * @param n コントロールノード
+	 * @return フォームならMe、子ならMe.フィールド名
+	 */
 	private static String toPropertyTarget(Vb6FormNodeEntity n) {
 		// フォーム自身への代入はMeを使い、子コントロールにはフィールド参照を返す。
 		return "VB.Form".equals(n.getVbType()) ? "Me" : toControlReference(n.getField());
 	}
 
 	/**
-	* VB.NETのコントロールプロパティ代入文を生成する。
-	* @param b 生成するVB.NETコードや監査資料の行を蓄積する文字列バッファ
-	* @param n コントロールノード
-	* @param property プロパティ名
-	* @param expression 右辺のVB.NET式
-	*/
+	 * VB.NETのコントロールプロパティ代入文を生成する。
+	 * @param b 生成するVB.NETコードや監査資料の行を蓄積する文字列バッファ
+	 * @param n コントロールノード
+	 * @param property プロパティ名
+	 * @param expression 右辺のVB.NET式
+	 */
 	private static void appendPropertyAssignment(StringBuilder b, Vb6FormNodeEntity n, String property, String expression) {
 		Vb6Format.appendLine(b, "        " + toPropertyTarget(n) + "." + property + " = " + expression);
 	}
 
 	/**
-	* ImageListなど、Controls.Addをしない非表示コンポーネントを判定する。
-	* @param n 対象ノード
-	* @return 非表示コンポーネントならtrue
-	*/
+	 * ImageListなど、Controls.Addをしない非表示コンポーネントを判定する。
+	 * @param n 対象ノード
+	 * @return 非表示コンポーネントならtrue
+	 */
 	private static boolean isNonVisual(Vb6FormNodeEntity n) {
 		// 変換先の型が、画面上に配置しないImageListまたはOpenFileDialogかを返す。
 		return n.getWinType() != null && (n.getWinType().endsWith(".ImageList") || n.getWinType().endsWith(".OpenFileDialog"));
 	}
 
 	/**
-	* 単一コントロールの位置、サイズ、文字、フォント、種別固有の属性を生成する。
-	* LabelはCaption・WordWrap・AutoSizeから文字切れを避ける設定を決定する。
-	* @param out コントロールのプロパティ代入文を追記するVB.NETコードバッファ
-	* @param n 対象ノード
-	* @param stateEntity ルートフォームを属性出力の対象から除外するために参照する変換状態
-	*/
+	 * 単一コントロールの位置、サイズ、文字、フォント、種別固有の属性を生成する。
+	 * LabelはCaption・WordWrap・AutoSizeから文字切れを避ける設定を決定する。
+	 * @param out コントロールのプロパティ代入文を追記するVB.NETコードバッファ
+	 * @param n 対象ノード
+	 * @param stateEntity ルートフォームを属性出力の対象から除外するために参照する変換状態
+	 */
 	private static void appendControlProperties(StringBuilder out, Vb6FormNodeEntity n, Vb6ConversionStateEntity stateEntity) {
 
 		// 未対応ノードとフォーム本体は、子コントロール用の属性出力から除外する。
@@ -322,12 +322,12 @@ final class VbNetSourceGenerator {
 	}
 
 	/**
-	* VB6のOLE_COLORをSystem.Drawing.Colorの式へ変換する。
-	* 通常色はBGR、システム色は一部対応。
-	* @param raw VB6の色コード
-	* @return WinForms色の式。
-	* 変換できなければnull
-	*/
+	 * VB6のOLE_COLORをSystem.Drawing.Colorの式へ変換する。
+	 * 通常色はBGR、システム色は一部対応。
+	 * @param raw VB6の色コード
+	 * @return WinForms色の式。
+	 * 変換できなければnull
+	 */
 	private static String toColor(String raw) {
 
 		// 色の指定がない場合は変換結果を返さず、既定の表示色を維持する。
@@ -379,12 +379,12 @@ final class VbNetSourceGenerator {
 	}
 
 	/**
-	* WinFormsのDesigner.vbを生成する。
-	* コントロール生成、プロパティ設定、TabPageと親子関係の割当、
-	* フィールド宣言を順に行う。
-	* @param stateEntity 解決済み変換状態
-	* @return Designer.vb全文
-	*/
+	 * WinFormsのDesigner.vbを生成する。
+	 * コントロール生成、プロパティ設定、TabPageと親子関係の割当、
+	 * フィールド宣言を順に行う。
+	 * @param stateEntity 解決済み変換状態
+	 * @return Designer.vb全文
+	 */
 	static String toDesignerSource(Vb6ConversionStateEntity stateEntity) {
 		// 生成するDesigner.vbの全文（初期化処理・プロパティ・フィールド宣言）を蓄積する。
 		StringBuilder out = new StringBuilder();
@@ -575,11 +575,11 @@ final class VbNetSourceGenerator {
 	}
 
 	/**
-	* VB6コードから単純なPublicフィールドのみを抽出する。
-	* イベントや業務ロジックは移植しない。
-	* @param code 元VB6コード
-	* @return VB.NETのPublicフィールド宣言
-	*/
+	 * VB6コードから単純なPublicフィールドのみを抽出する。
+	 * イベントや業務ロジックは移植しない。
+	 * @param code 元VB6コード
+	 * @return VB.NETのPublicフィールド宣言
+	 */
 	static String toPublicFieldDeclarations(String code) {
 		// 元VB6コードから抽出したPublicフィールドのVB.NET宣言文を蓄積する。
 		StringBuilder output = new StringBuilder();

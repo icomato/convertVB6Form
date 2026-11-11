@@ -6,32 +6,32 @@ import java.nio.file.Path;
 import java.util.Arrays;
 
 /**
-* 元フォームの座標、変換後の配置、警告を確認するための監査資料を生成する。
-*
-* @author convertVB6Form contributors
-* @version 1.0
-* @since 1.0
-*/
+ * 元フォームの座標、変換後の配置、警告を確認するための監査資料を生成する。
+ *
+ * @author convertVB6Form contributors
+ * @version 1.0
+ * @since 1.0
+ */
 final class Vb6ReportGenerator {
 	/** インスタンス化を防ぐ。 */
 	private Vb6ReportGenerator() {
 	}
 
 	/**
-	* CSVフィールドを引用符で囲み、内部の引用符をエスケープする。
-	* @param value 出力する値
-	* @return CSV用にエスケープした値
-	*/
+	 * CSVフィールドを引用符で囲み、内部の引用符をエスケープする。
+	 * @param value 出力する値
+	 * @return CSV用にエスケープした値
+	 */
 	private static String toCsvField(String value) {
 		// 内部の引用符を二重化し、全体を引用符で囲んだCSVフィールドを返す。
 		return "\"" + value.replace("\"", "\"\"") + "\"";
 	}
 
 	/**
-	* 元のTwips座標、換算後のPixel座標、親子関係などをCSVに出力する。
-	* @param stateEntity 変換状態
-	* @return 座標監査CSV全文
-	*/
+	 * 元のTwips座標、換算後のPixel座標、親子関係などをCSVに出力する。
+	 * @param stateEntity 変換状態
+	 * @return 座標監査CSV全文
+	 */
 	static String toCoordinateAuditCsv(Vb6ConversionStateEntity stateEntity) {
 		// 元座標・変換後座標・親子関係などの監査CSV全文を蓄積する。
 		StringBuilder b = new StringBuilder();
@@ -66,11 +66,11 @@ final class Vb6ReportGenerator {
 	}
 
 	/**
-	* 変換条件、補正・推定件数、警告、未移植コードをレポートに出力する。
-	* @param stateEntity 変換状態
-	* @param source 入力.frmパス
-	* @return 移行レポート全文
-	*/
+	 * 変換条件、補正・推定件数、警告、未移植コードをレポートに出力する。
+	 * @param stateEntity 変換状態
+	 * @param source 入力.frmパス
+	 * @return 移行レポート全文
+	 */
 	static String toMigrationReport(Vb6ConversionStateEntity stateEntity, Path source) {
 		// 変換条件・警告・未移植コードを記載する移行レポート全文を蓄積する。
 		StringBuilder b = new StringBuilder();

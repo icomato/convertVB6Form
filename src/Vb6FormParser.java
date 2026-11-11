@@ -14,27 +14,27 @@ import java.util.Deque;
 import java.util.regex.Matcher;
 
 /**
-* VB6の.frmからコントロール階層・属性・元コードを読み取る。
-*
-* @author convertVB6Form contributors
-* @version 1.0
-* @since 1.0
-*/
+ * VB6の.frmからコントロール階層・属性・元コードを読み取る。
+ *
+ * @author convertVB6Form contributors
+ * @version 1.0
+ * @since 1.0
+ */
 final class Vb6FormParser {
 	/** インスタンス化を防ぐ。 */
 	private Vb6FormParser() {
 	}
 
 	/**
-	* .frmをWindows-31Jで読み、
-	* Begin/Endをスタックで解釈してノードツリーを構築する。
-	* BeginPropertyは親コントロールの属性とし、
-	* Attribute VB_Name以降はVB6コード部として保存する。
-	* @param source 入力.frmのパス
-	* @return コントロール階層と元コードを含む解析状態
-	* @throws IOException 読み込みに失敗、
-	* またはBegin/Endが不整合の場合
-	*/
+	 * .frmをWindows-31Jで読み、
+	 * Begin/Endをスタックで解釈してノードツリーを構築する。
+	 * BeginPropertyは親コントロールの属性とし、
+	 * Attribute VB_Name以降はVB6コード部として保存する。
+	 * @param source 入力.frmのパス
+	 * @return コントロール階層と元コードを含む解析状態
+	 * @throws IOException 読み込みに失敗、
+	 * またはBegin/Endが不整合の場合
+	 */
 	static Vb6ConversionStateEntity parseForm(Path source) throws IOException {
 		// このフォームの解析ノードと元コードを保持し、レイアウト解決へ渡す状態。
 		Vb6ConversionStateEntity stateEntity = new Vb6ConversionStateEntity();
