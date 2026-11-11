@@ -1114,7 +1114,7 @@ public final class Vb6WinFormsConverter {
 	* LabelはCaption・WordWrap・AutoSizeから文字切れを避ける設定を決定する。
 	* @param out コントロールのプロパティ代入文を追記するVB.NETコードバッファ
 	* @param n 対象ノード
-	* @param stateEntity 変換状態
+	* @param stateEntity ルートフォームを属性出力の対象から除外するために参照する変換状態
 	*/
 	private static void appendControlProperties(StringBuilder out, Vb6FormNodeEntity n, Vb6ConversionStateEntity stateEntity) {
 
@@ -1181,6 +1181,7 @@ public final class Vb6WinFormsConverter {
 			try {
 				new BigDecimal(fontSize);
 			} catch (NumberFormatException ex) {
+				// 数値として無効なSizeを既定ポイント数に置き換え、VB.NETの生成式に残さない。
 				fontSize = DEFAULT_FONT_SIZE_POINTS;
 			}
 
@@ -1404,8 +1405,14 @@ public final class Vb6WinFormsConverter {
 			};
 		}
 
-		// OLE_COLORは下位からR・G・B各8ビット。16ビットと8ビットのシフトでBとGを抽出する。
-		int b = (int) ((value >> 16) & UNSIGNED_BYTE_MAX), g = (int) ((value >> 8) & UNSIGNED_BYTE_MAX), r = (int) (value & UNSIGNED_BYTE_MAX);
+		// OLE_COLORの下位8ビットから、FromArgbに渡す赤成分を取り出す。
+		int r = (int) (value & UNSIGNED_BYTE_MAX);
+
+		// 次の8ビットから、FromArgbに渡す緑成分を取り出す。
+		int g = (int) ((value >> 8) & UNSIGNED_BYTE_MAX);
+
+		// さらに上位の8ビットから、FromArgbに渡す青成分を取り出す。
+		int b = (int) ((value >> 16) & UNSIGNED_BYTE_MAX);
 
 		// BGRの各成分をRGB順に並べ、WinFormsの色生成式として返す。
 		return "System.Drawing.Color.FromArgb(" + r + ", " + g + ", " + b + ")";
