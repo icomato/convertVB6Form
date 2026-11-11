@@ -29,51 +29,71 @@ public final class Vb6FormNodeEntity {
 	* controlまたはproperty。
 	*/
 	private String kind; // control, property
-	/** 元のVB6型名と要素名。 */
+
+	/** 対応するWinForms型を判定するための元のVB6型名。 */
 	private String vbType;
+
 	/** VB6でのコントロール名。 */
 	@ToString.Include
 	private String name;
+
 	/**
 	* VB6定義における親ノード。
 	* フォームの場合はnull。
 	*/
 	private Vb6FormNodeEntity parent;
+
 	/** 子コントロールの一覧。 */
 	private final List<Vb6FormNodeEntity> children = new ArrayList<>();
+
 	/** VB6の属性値（元の文字列）。 */
 	private final Map<String, String> props = new LinkedHashMap<>();
+
 	/** Fontなどの入れ子プロパティ。 */
 	private final Map<String, Vb6FormNodeEntity> nested = new HashMap<>();
-	/** 元識別子、出力フィールド名、WinForms型、変換後の親名。 */
+
+	/** SSTabの所属情報や座標監査で参照する元コントロールの識別子。 */
 	private String id;
+
 	/** 変換後に使用するVB.NETのフィールド名。 */
 	private String field;
+
 	/** 対応するWinFormsの型名。 */
 	private String winType;
+
 	/** タブを考慮して解決した親コンテナ名。 */
 	private String resolvedParent = "";
+
 	/**
 	* タブ番号。
 	* タブに所属しない場合は-1。
 	*/
 	private int tabIndex = -1;
-	/** VB6の元座標とサイズ（Twips）。 */
+
+	/** 元のLeft位置（Twips）。非表示タブの退避座標の判定にも使う。 */
 	private int leftTwips;
+
 	/** 元のTop位置（Twips）。 */
 	private int topTwips;
+
 	/** 元の幅（Twips）。 */
 	private int widthTwips;
+
 	/** 元の高さ（Twips）。 */
 	private int heightTwips;
-	/** 変換後の座標とサイズ（Pixel）。 */
+
+	/** WinFormsの親コンテナを基準とする変換後のLeft位置（Pixel）。 */
 	private int pixelLeft;
+
 	/** 変換後のTop位置（Pixel）。 */
 	private int pixelTop;
+
 	/** 変換後の幅（Pixel）。 */
 	private int pixelWidth;
+
 	/** 変換後の高さ（Pixel）。 */
 	private int pixelHeight;
+
 	/** 変換先WinForms型が対応しているかどうか。 */
 	private boolean supported = true;
 

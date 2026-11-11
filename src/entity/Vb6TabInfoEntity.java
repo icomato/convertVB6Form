@@ -24,13 +24,17 @@ import java.util.Map;
 public final class Vb6TabInfoEntity {
 	/** SSTabコントロール本体。 */
 	private Vb6FormNodeEntity tab;
+
 	/** タブの枚数。 */
 	@ToString.Include
 	private int count;
+
 	/** SSTab見出しの高さ（Twips）。 */
 	private int tabHeightTwips;
+
 	/** 元コントロール識別子と所属タブ番号の対応表。 */
 	private final Map<String, Integer> assignments = new HashMap<>();
+
 	/** 生成するTabPageのノード一覧。 */
 	private final List<Vb6FormNodeEntity> pages = new ArrayList<>();
 

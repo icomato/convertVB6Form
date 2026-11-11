@@ -23,7 +23,10 @@ public final class EntityBehaviorTest {
 	* @param args 使用しない
 	*/
 	public static void main(String[] args) {
+		// 親子参照と属性変更を検査するためのルートフォーム。
 		Vb6FormNodeEntity parent = new Vb6FormNodeEntity("control", "VB.Form", "Root", null);
+
+		// 親参照と属性アクセサを検査するためのラベル。
 		Vb6FormNodeEntity child = new Vb6FormNodeEntity("control", "VB.Label", "Label1", parent);
 		parent.getChildren().add(child);
 		child.getProps().put("Caption", "表示文字");
@@ -34,13 +37,18 @@ public final class EntityBehaviorTest {
 		child.setSupported(false);
 		assert !child.isSupported();
 
+		// 同じ属性値を持つ別インスタンスとの同一性比較に使うフォーム。
 		Vb6FormNodeEntity sameValues = new Vb6FormNodeEntity("control", "VB.Form", "Root", null);
 		assert parent.equals(parent);
 		assert !parent.equals(sameValues);
 		assert !parent.equals(null);
+
+		// 属性変更後も同じノードを検索できるか確認する集合。
 		Set<Vb6FormNodeEntity> nodes = new HashSet<>();
 		nodes.add(parent);
 		nodes.add(sameValues);
+
+		// 名前を変更しても変わらないことを確認する変更前のハッシュ値。
 		int originalHash = parent.hashCode();
 		parent.setName("Renamed");
 		assert parent.hashCode() == originalHash;
@@ -48,6 +56,7 @@ public final class EntityBehaviorTest {
 		assert parent.toString().contains("Renamed");
 		assert child.toString().contains("Label1");
 
+		// ページ一覧とタブ本体の参照を検査するSSTabの管理情報。
 		Vb6TabInfoEntity tab = new Vb6TabInfoEntity();
 		tab.setTab(parent);
 		tab.setCount(2);
@@ -56,6 +65,7 @@ public final class EntityBehaviorTest {
 		assert !tab.equals(new Vb6TabInfoEntity());
 		assert tab.toString().contains("count=2");
 
+		// フォーム・タブ情報の保持と出力件数の集計を検査する変換状態。
 		Vb6ConversionStateEntity state = new Vb6ConversionStateEntity();
 		state.setForm(parent);
 		state.setClassName("Sample");

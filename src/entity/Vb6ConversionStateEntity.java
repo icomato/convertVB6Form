@@ -27,32 +27,44 @@ import java.util.Set;
 public final class Vb6ConversionStateEntity {
 	/** ルートのVB.Form。 */
 	private Vb6FormNodeEntity form;
+
 	/** VB6に定義されたコントロール一覧。 */
 	private final List<Vb6FormNodeEntity> all = new ArrayList<>();
+
 	/** 変換時に判明した警告の一覧。 */
 	private final List<String> warnings = new ArrayList<>();
+
 	/** 識別子からノードへの参照表。 */
 	private final Map<String, Vb6FormNodeEntity> byId = new LinkedHashMap<>();
+
 	/** SSTabノードとタブ情報の対応表。 */
 	private final Map<Vb6FormNodeEntity, Vb6TabInfoEntity> tabs = new IdentityHashMap<>();
+
 	/** 生成済みフィールド名の集合。 */
 	private final Set<String> usedFields = new HashSet<>();
+
 	/**
 	* 座標変換に使用するDPI。
 	* 初期値は96。
 	*/
 	private double dpi = 96.0;
+
 	/** タブ所属を推定した件数。 */
 	private int unknownTabCount;
+
 	/** SSTabの負座標を補正した件数。 */
 	private int remappedTabCount;
+
 	/** WinFormsに出力する表示コントロール数。 */
 	private int visualCount;
+
 	/** 未対応で省略したコントロール数。 */
 	private int ignoredCount;
+
 	/** 出力するVB.NETフォームのクラス名。 */
 	@ToString.Include
 	private String className;
+
 	/**
 	* 元フォームに含まれるVB6コード。
 	* 参考保存用で実行コードには変換しない。
